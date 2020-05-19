@@ -10,6 +10,13 @@ workspace "WorldEditorGUI"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
+-- Include directories relative to root folder (solution directory)
+IncludeDir = {}
+IncludeDir["SDL2"] = "vendor/SDL2/include"
+
+LibsDir = {}
+LibsDir["SDL2"] = "vendor/SDL2/lib/x64"
+
 project "WorldEditorGUI"
 	location "WorldEditorGUI"
 	kind "ConsoleApp"
@@ -22,6 +29,26 @@ project "WorldEditorGUI"
 	{
 		"%{prj.name}/src/**.h",
 		"%{prj.name}/src/**.cpp"
+	}
+	
+	includedirs
+	{
+		"%{prj.name}/src",
+		"%{IncludeDir.SDL2}"
+	}
+	
+	libdirs
+	{
+		"%{LibsDir.SDL2}"
+	}
+	
+	links
+	{
+		"SDL2_mixer.lib",
+		"SDL2_ttf.lib",
+		"SDL2_image.lib",
+		"SDL2.lib",
+		"SDL2main.lib"
 	}
 
 	filter "system:windows"
