@@ -13,9 +13,11 @@ outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 -- Include directories relative to root folder (solution directory)
 IncludeDir = {}
 IncludeDir["SDL2"] = "vendor/SDL2/include"
+IncludeDir["lua"] = "vendor/lua/include"
 
 LibsDir = {}
 LibsDir["SDL2"] = "vendor/SDL2/lib/x64"
+LibsDir["lua"] = "vendor/lua"
 
 project "WorldEditorGUI"
 	location "WorldEditorGUI"
@@ -34,12 +36,14 @@ project "WorldEditorGUI"
 	includedirs
 	{
 		"%{prj.name}/src",
-		"%{IncludeDir.SDL2}"
+		"%{IncludeDir.SDL2}",
+		"%{IncludeDir.lua}"
 	}
 	
 	libdirs
 	{
-		"%{LibsDir.SDL2}"
+		"%{LibsDir.SDL2}",
+		"%{LibsDir.lua}"
 	}
 	
 	links
@@ -48,7 +52,8 @@ project "WorldEditorGUI"
 		"SDL2_ttf.lib",
 		"SDL2_image.lib",
 		"SDL2.lib",
-		"SDL2main.lib"
+		"SDL2main.lib",
+		"lua53.lib";
 	}
 
 	filter "system:windows"
