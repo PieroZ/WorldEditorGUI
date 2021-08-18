@@ -17,6 +17,8 @@ private:
 	int    NumFrames;
 	int     Frames;
 
+	static const float FRAME_RATE;
+
 public:
 	CFPS();
 

@@ -2,82 +2,225 @@
 #include "App.h"
 #include <SDL_image.h>
 #include <stdio.h>
-#include "Stringify.h"
 #include <fstream>
 #include <sstream>
+#include <filesystem>
+
+#include "Stringify.h"
+#include "CFPS.h"
+#include "Log.h"
+#include "Config.h"
+#include "DebugRenderer.h"
 
 App App::Instance;
 
 
+static int TOTAL_FRAMES = 0;
+
+static const int MOVEMENT_SPEED = 8;
+
+// Location::starting_loc. - >w_obj.GetLocation("start_1")->
+// Location::starting_loc ->
+
 #define TILE_COLLISION_DEBUG_RENDER 0
+#define FPS_DEBUG_RENDER 1
+#define DEBUG_MODE 1
+
+
+std::string STARTING_LOCATION_FILENAME_NO_EXT = "test_map";
+std::string MAP_RESOURCE_LOCATION = "res/map";
+std::string STARTING_LOCATION_PATH = "res/map/" + STARTING_LOCATION_FILENAME_NO_EXT + ".lua";
+
+
+
+static const auto DEBUG_RENDER_PLAYER_COLLISION = ParamsRegister::R_bool("B_RenderPlayerCollision", false);
+static const auto SET_PLAYER_X0 = ParamsRegister::R_int("P_StartX", 330);
+static const auto SET_PLAYER_Y0 = ParamsRegister::R_int("P_StartY", 400);
+static const auto SET_STARTING_LOCATION = ParamsRegister::R_string("StartingLocation", "test_map");
+
+//const std::string ADDITIONAL_LOCATION_PATH = "res/map/" + "minio_city" + ".lua";
+
+
+
+
 
 //==============================================================================
-App::App() : player(200, 400)//, npc(400, 400, 0, 0)
+//App::App() : player(1920/2, 480)//, npc(400, 400, 0, 0)
+// Values taken from map tiles width & height
+//App::App() : player(Location::starting_loc, 1920/2, 480), area_cam(player.m_x, player.m_y, 30 * SCALED_SPRITE_WIDTH, 17 * SCALED_SPRITE_HEIGHT)//, npc(400, 400, 0, 0)
+//App::App() : player(*this, 1260, 1290), area_cam(player.m_x, player.m_y, 0, 0)//, npc(400, 400, 0, 0)
+//App::App() : player(*this, 330, 400), area_cam(player.m_x, player.m_y, 0, 0)//, npc(400, 400, 0, 0)
+App::App() : player(330, 400), area_cam(player.m_x, player.m_y, 0, 0)//, npc(400, 400, 0, 0)
+//App::App() : player(Location::starting_loc, 1920/2, 480), area_cam(player.m_x, player.m_y, 40 * SCALED_SPRITE_WIDTH, 22 * SCALED_SPRITE_HEIGHT)//, npc(400, 400, 0, 0)
 {
+
+
+
 	BackgroundWidth = 0;
 	BackgroundHeight = 0;
+
 	//start_loc.OnLoad("res/map/map.txt");
 
-	//Location::starting_loc.OnLoad("res/map/map.txt");
+	//w_obj.GetLocation("start_1")->OnLoad("res/map/map.txt");
+}
+
+void App::OnMove(int x_speed, int y_speed)
+{
+	player.Move(x_speed, y_speed, w_obj);
+
+	// Move camera only if player is @ middle
+
+	int player_screen_x = SCREEN_WIDTH / 2;
+
+	if (x_speed != 0 && ((player.m_x >= player_screen_x) && (player.m_x <= (m_current_location->GetLocationWidth() - SCREEN_WIDTH / 2))))
+	{
+		//area_cam.Move(x_speed, 0);
+		area_cam.m_x = player.m_x;
+	}
+
+	int player_screen_y = SCREEN_HEIGHT / 2;
+
+	if (y_speed != 0 && ((player.m_y >= player_screen_y) && (player.m_y <= (m_current_location->GetLocationHeight() - SCREEN_HEIGHT / 2))))
+	{
+		//area_cam.Move(0, y_speed);
+		area_cam.m_y = player.m_y;
+	}
+
+
+	//if (m_current_location->HasPlayerEnteredWaypoint(player.m_x, player.m_y))
+	std::shared_ptr<Location> t_loc;
+	int t_loc_x = 0;
+	int t_loc_y = 0;
+
+	if (m_current_location->HasPlayerEnteredWaypoint(player, t_loc, t_loc_x, t_loc_y))
+	{
+		entered_loc = t_loc;
+		loc_x = t_loc_x;
+		loc_y = t_loc_y;
+		//After fade out sequence
+		leaving_location = true;
+		
+		/*area_cam.SetLimits(m_current_location->GetLocationWidth(), m_current_location->GetLocationHeight());
+		area_cam.SetCameraBasedOnPlayerPos(player.m_x, player.m_y);*/
+
+
+		/*area_cam.m_x = player.m_x;
+		area_cam.m_y = player.m_y;*/
+		//std::cout << "BP\n";
+	}
+
+	//std::cout << "\n\n\n";
+	//std::cout << "Player x pos: " << player.m_x << std::endl;
+	//std::cout << "Player y pos: " << player.m_y << std::endl;
+	//std::cout << "Camera x pos: " << area_cam.m_x << std::endl;
+	//std::cout << "Camera y pos: " << area_cam.m_y << std::endl;
 }
 
 //------------------------------------------------------------------------------
 void App::OnKeyDown(SDL_Event* Event) 
 {
-	static const int speed = 15;
-	if (m_state == STATE_ENUM::NORMAL)
+	if (!leaving_location && !entering_location)
 	{
-		if (Event->type == SDL_KEYDOWN)
+		if (m_state == STATE_ENUM::NORMAL)
 		{
-			if (Event->key.keysym.sym == SDLK_DOWN || Event->key.keysym.sym == SDLK_s)
+			if (Event->type == SDL_KEYDOWN)
 			{
-				player.Move(0, speed, w_obj);
-			}
-			else if (Event->key.keysym.sym == SDLK_UP || Event->key.keysym.sym == SDLK_w)
-			{
-				player.Move(0, -speed, w_obj);
-			}
-			else if (Event->key.keysym.sym == SDLK_RIGHT || Event->key.keysym.sym == SDLK_d)
-			{
-				player.Move(speed, 0, w_obj);
-			}
-			else if (Event->key.keysym.sym == SDLK_LEFT || Event->key.keysym.sym == SDLK_a)
-			{
-				player.Move(-speed, 0, w_obj);
-			}
-			else if (Event->key.keysym.sym == SDLK_RETURN)
-			{
-				int tile_id_to_be_interacted_with = Location::starting_loc.GetTileDirId(player.m_x, player.m_y, static_cast<int>(player.m_dir));
-				int x = 0;
-				int y = 0;
-				Location::IdToXY(tile_id_to_be_interacted_with, x, y);
-				bool has_dialogue = false;
-				//uint32_t interactable_id = 0;
-				if (w_obj.IsInteractableAt(x, y, has_dialogue, m_dialogueable))
+				if (Event->key.keysym.sym == SDLK_DOWN || Event->key.keysym.sym == SDLK_s)
 				{
-					if (has_dialogue)
+					player_moving_down = true;
+					player_moving_up = false;
+					//OnMove(0, speed);
+					//player_edge_enum = static_cast<EdgeEnum>(player.IsPlayerAtEdgePosition());
+				}
+				else if (Event->key.keysym.sym == SDLK_UP || Event->key.keysym.sym == SDLK_w)
+				{
+					player_moving_up = true;
+					player_moving_down = false;
+					//OnMove(0, -speed);
+					//player.IsPlayerAtEdgePosition();
+				}
+				else if (Event->key.keysym.sym == SDLK_RIGHT || Event->key.keysym.sym == SDLK_d)
+				{
+					player_moving_right = true;
+					player_moving_left = false;
+					//OnMove(speed, 0);
+					//player.IsPlayerAtEdgePosition();
+				}
+				else if (Event->key.keysym.sym == SDLK_LEFT || Event->key.keysym.sym == SDLK_a)
+				{
+					player_moving_left = true;
+					player_moving_right = false;
+					//OnMove(-speed, 0);
+					//player.IsPlayerAtEdgePosition();
+				}
+				if (Event->key.keysym.sym == SDLK_RETURN || Event->key.keysym.sym == SDLK_KP_ENTER)
+				{
+					int tile_id_to_be_interacted_with = m_current_location->GetTileDirId(player.m_x, player.m_y, static_cast<int>(player.m_dir));
+					int x = 0;
+					int y = 0;
+					//Location::IdToXY(tile_id_to_be_interacted_with, x, y);
+
+					//m_current_location->IdToXY(tile_id_to_be_interacted_with, x, y);
+
+					bool has_dialogue = false;
+					//uint32_t interactable_id = 0;
+					if (w_obj.IsInteractableAt(player, has_dialogue, m_npc_currently_interacted_with, m_current_location))
 					{
-						m_state = STATE_ENUM::DIALOGUE;
-						UpdateCurrentlyShownText(w_obj.PlayDialogue(m_dialogueable, m_dialogue_last_line));
+						if (has_dialogue)
+						{
+							if (m_npc_currently_interacted_with->IsRotatable())
+							{
+								m_npc_currently_interacted_with->SetDirBasedOnPlayer(player.GetDir());
+							}
+							m_state = STATE_ENUM::DIALOGUE;
+							//UpdateCurrentlyShownText(w_obj.PlayDialogue(m_npc_currently_interacted_with, m_dialogue_last_line));
+							//m_dial_gui.SetDisplayedText(w_obj.PlayDialogue(m_npc_currently_interacted_with, m_dialogue_last_line));
+							m_dial_controller.LoadDialog("res/scripts/dialogues/" + m_npc_currently_interacted_with->GetNpcName() + ".lua", m_npc_currently_interacted_with);
+							m_dial_controller.StartDialog();
+							m_dial_controller.ContinueDialog();
+						}
 					}
 				}
 			}
 		}
-	}
-	else if (m_state == STATE_ENUM::DIALOGUE)
-	{
-		if (Event->type == SDL_KEYDOWN)
+		else if (m_state == STATE_ENUM::DIALOGUE)
 		{
-			if (Event->key.keysym.sym == SDLK_RETURN)
+			if (Event->type == SDL_KEYDOWN)
 			{
-				if (!m_dialogue_last_line)
+				if (m_dial_controller.IsChoiceState())
 				{
-					UpdateCurrentlyShownText(w_obj.PlayDialogue(m_dialogueable, m_dialogue_last_line));
+					if (Event->key.keysym.sym == SDLK_DOWN || Event->key.keysym.sym == SDLK_s)
+					{
+						m_dial_controller.SelectNextChoice();
+					}
+					else if (Event->key.keysym.sym == SDLK_UP || Event->key.keysym.sym == SDLK_w)
+					{
+						m_dial_controller.SelectPreviousChoice();
+					}
+					else if (Event->key.keysym.sym == SDLK_RETURN || Event->key.keysym.sym == SDLK_KP_ENTER)
+					{
+						m_dial_controller.ContinueDialog();
+					}
 				}
 				else
 				{
-					m_dialogue_last_line = false;
-					m_state = STATE_ENUM::NORMAL;
+
+					if (Event->key.keysym.sym == SDLK_RETURN || Event->key.keysym.sym == SDLK_KP_ENTER)
+					{
+						if (!m_dial_controller.IsLastLine())
+						{
+							m_dial_controller.ContinueDialog();
+							//UpdateCurrentlyShownText(w_obj.PlayDialogue(m_npc_currently_interacted_with, m_dialogue_last_line));
+
+							//m_dial_gui.SetDisplayedText(w_obj.PlayDialogue(m_npc_currently_interacted_with, m_dialogue_last_line));
+							//m_dial_controller.StartDialog();
+						}
+						else
+						{
+							m_dialogue_last_line = false;
+							m_state = STATE_ENUM::NORMAL;
+						}
+					}
 				}
 			}
 		}
@@ -92,18 +235,22 @@ void App::OnKeyUp(SDL_Event* Event)
 		{
 			if (Event->key.keysym.sym == SDLK_DOWN || Event->key.keysym.sym == SDLK_s)
 			{
+				player_moving_down = false;
 				player.m_moving = false;
 			}
 			else if (Event->key.keysym.sym == SDLK_UP || Event->key.keysym.sym == SDLK_w)
 			{
+				player_moving_up = false;;
 				player.m_moving = false;
 			}
 			else if (Event->key.keysym.sym == SDLK_RIGHT || Event->key.keysym.sym == SDLK_d)
 			{
+				player_moving_right = false;
 				player.m_moving = false;
 			}
 			else if (Event->key.keysym.sym == SDLK_LEFT || Event->key.keysym.sym == SDLK_a)
 			{
+				player_moving_left = false;
 				player.m_moving = false;
 			}
 		}
@@ -152,19 +299,50 @@ void App::UpdateCurrentlyShownText(const std::string& text, SDL_Color text_color
 		currently_displayed_line = "UGAUGAGAUGA\nGSRGSRGJR";
 	}*/
 
-
-	if (!text_texture.loadFromRenderedText(Renderer, currently_displayed_line, text_color, m_font))
-	{
-		printf("Failed to render text texture!\n");
-		//success = false;
-	}
 }
 
 
 //------------------------------------------------------------------------------
 void App::Loop() 
 {
+	if (player_moving_right)
+	{
+		OnMove(MOVEMENT_SPEED, 0);
+	}
+	else if (player_moving_left)
+	{
+		OnMove(-MOVEMENT_SPEED, 0);
+	}
+
+	if (player_moving_up)
+	{
+		OnMove(0, -MOVEMENT_SPEED);
+	}
+	else if (player_moving_down)
+	{
+		OnMove(0, MOVEMENT_SPEED);
+	}
+
+	if (m_state == STATE_ENUM::DIALOGUE)
+	{
+		StopPlayerMovement();
+	}
+
+	if (leaving_location || entering_location)
+	{
+		StopPlayerMovement();
+		MoveToAnotherLocationSequence();
+	}
 	//CAppStateManager::OnLoop();
+}
+
+void App::StopPlayerMovement()
+{
+	player_moving_down = false;
+	player_moving_up = false;
+	player_moving_left = false;
+	player_moving_right = false;
+	player.m_moving = false;
 }
 
 //------------------------------------------------------------------------------
@@ -179,46 +357,54 @@ void App::Render()
 		}
 	}*/
 	
-	int id = 0;
-	int idx = 0;
-	int idy = 0;
-	for (auto&& p : Location::starting_loc.m_tiles_arr)
-	{
-		TextureBank::Get("ss_nomargin")->Render(idx * SCALED_SPRITE_WIDTH, idy * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, p.m_tile_y * SPRITE_WIDTH, p.m_tile_x * SPRITE_HEIGHT, SPRITE_WIDTH, SPRITE_HEIGHT);
-#if TILE_COLLISION_DEBUG_RENDER
-		const SDL_Rect col_rect{ idx * SCALED_SPRITE_WIDTH, idy * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT };
-		if (p.TypeID == 2)
-		{
-			SDL_SetRenderDrawColor(Renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
-		}
-
-		SDL_RenderDrawRect(Renderer, &col_rect);
-		SDL_SetRenderDrawColor(Renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
-#endif // TILE_COLLISION_DEBUG_RENDER
-		id++;
-		idx = id % TILES_COLS;
-		idy = id / TILES_COLS;
 
 
+	//w_obj.GetLocation("start_1")->OnRender(Renderer, player.m_x, player.m_y);
+	//Location::starting_loc_elements.OnRender(Renderer, player.m_x, player.m_y);
+
+	//static int g = 0;
+	//g++;
+	//g = g % 256;
+
+	m_current_location->OnRender(Renderer, area_cam.m_x, area_cam.m_y, fade_out_value, fade_out_value, fade_out_value);
+	
+	//Location::starting_loc_elements.OnRender(Renderer, area_cam.m_x, area_cam.m_y);
+
+
+//	int id = 0;
+//	int idx = 0;
+//	int idy = 0;
+//	for (auto&& p : w_obj.GetLocation("start_1")->m_tiles_arr)
+//	{
+//		TextureBank::Get("ss_nomargin")->Render(idx * SCALED_SPRITE_WIDTH, idy * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, p.m_tile_y * SPRITE_WIDTH, p.m_tile_x * SPRITE_HEIGHT, SPRITE_WIDTH, SPRITE_HEIGHT);
 //#if TILE_COLLISION_DEBUG_RENDER
-
+//		const SDL_Rect col_rect{ idx * SCALED_SPRITE_WIDTH, idy * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT };
+//		if (p.TypeID == 2)
+//		{
+//			SDL_SetRenderDrawColor(Renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
+//		}
+//
+//		SDL_RenderDrawRect(Renderer, &col_rect);
+//		SDL_SetRenderDrawColor(Renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
 //#endif // TILE_COLLISION_DEBUG_RENDER
-
-	}
-
-	id = 0;
-	idx = 0;
-	idy = 0;
-	for (auto&& p : Location::starting_loc_elements.m_tiles_arr)
-	{
-		if (p.TypeID != TILE_TYPE_NONE)
-		{
-			TextureBank::Get("ss_nomargin")->Render(idx * SCALED_SPRITE_WIDTH, idy * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, p.m_tile_y * SPRITE_WIDTH, p.m_tile_x * SPRITE_HEIGHT, SPRITE_WIDTH, SPRITE_HEIGHT);
-		}
-		id++;
-		idx = id % TILES_COLS;
-		idy = id / TILES_COLS;
-	}
+//		id++;
+//		idx = id % TILES_COLS;
+//		idy = id / TILES_COLS;
+//	}
+//
+//	id = 0;
+//	idx = 0;
+//	idy = 0;
+//	for (auto&& p : Location::starting_loc_elements.m_tiles_arr)
+//	{
+//		if (p.TypeID != TILE_TYPE_NONE)
+//		{
+//			TextureBank::Get("ss_nomargin")->Render(idx * SCALED_SPRITE_WIDTH, idy * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, p.m_tile_y * SPRITE_WIDTH, p.m_tile_x * SPRITE_HEIGHT, SPRITE_WIDTH, SPRITE_HEIGHT);
+//		}
+//		id++;
+//		idx = id % TILES_COLS;
+//		idy = id / TILES_COLS;
+//	}
 
 	//TILE_TYPE_NONE
 
@@ -226,37 +412,82 @@ void App::Render()
 	////SDL_SetRenderDrawColor(Renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
 	//SDL_RenderDrawRect(Renderer, &hmm);
 	
+	if (fade_out_value != 255)
+	{
+		TextureBank::Get("char_ss")->setColor(fade_out_value, fade_out_value, fade_out_value);
+	}
+
+	int player_screen_x = SCREEN_WIDTH / 2;
+
+	if (player.m_x < player_screen_x)
+	{
+		player_screen_x = player.m_x;
+	}
+	else if (player.m_x > (m_current_location->GetLocationWidth() - SCREEN_WIDTH / 2))
+	{
+		// SCREEN_WIDTH IS ASSUMED TO BE CAMERA_WIDTH
+		player_screen_x = SCREEN_WIDTH - (m_current_location->GetLocationWidth() - player.m_x);
+	}
+	int player_screen_y = SCREEN_HEIGHT / 2;
+
+	if (player.m_y < player_screen_y)
+	{
+		player_screen_y = player.m_y;
+	}
+	else if(player.m_y > (m_current_location->GetLocationHeight() - SCREEN_HEIGHT / 2))
+	{
+		player_screen_y = SCREEN_HEIGHT - (m_current_location->GetLocationHeight() - player.m_y);
+	}
+	
 	SDL_Point sprite_coords = player.GetSpriteCoordinates();
 	if (player.m_moving)
 	{
-		TextureBank::Get("char_ss")->Render(player.m_x, player.m_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH * player.player_anim.GetCurrentFrame(), sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
+		TextureBank::Get("char_ss")->Render(player_screen_x, player_screen_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH * player.player_anim.GetCurrentFrame(), sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
+		//TextureBank::Get("char_ss")->Render(player.m_x, player.m_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH * player.player_anim.GetCurrentFrame(), sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
 	}
 	else
 	{
-		TextureBank::Get("char_ss")->Render(player.m_x, player.m_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
+		TextureBank::Get("char_ss")->Render(player_screen_x, player_screen_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
+		//TextureBank::Get("char_ss")->Render(player.m_x, player.m_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
 	}
 
 	/*const SDL_Rect rect{ player.m_x, player.m_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT };
 	SDL_RenderDrawRect(Renderer, &rect);*/
 
-#if TILE_COLLISION_DEBUG_RENDER
-	const SDL_Rect col_rect{ player.m_x + player.Col_X, player.m_y + player.Col_Y, player.Col_Width, player.Col_Height };
-	SDL_SetRenderDrawColor(Renderer, 255, 255, 0, SDL_ALPHA_OPAQUE);
-	SDL_RenderDrawRect(Renderer, &col_rect);
-	SDL_SetRenderDrawColor(Renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
-#endif // TILE_COLLISION_DEBUG_RENDER
+
+//#if TILE_COLLISION_DEBUG_RENDER
+	if (m_render_player_collision)
+	{
+		//const SDL_Rect col_rect{ player.m_x + player.Col_X, player.m_y + player.Col_Y, player.Col_Width, player.Col_Height };
+		const SDL_Rect col_rect{ player_screen_x + player.Col_X, player_screen_y + player.Col_Y, player.Col_Width, player.Col_Height };
+		SDL_SetRenderDrawColor(Renderer, 255, 255, 0, SDL_ALPHA_OPAQUE);
+		SDL_RenderDrawRect(Renderer, &col_rect);
+		//SDL_SetRenderDrawColor(Renderer, 0, 0, 255, SDL_ALPHA_OPAQUE);
+		//const SDL_Rect bound_rect{ player_screen_x, player_screen_y , SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT };
+		//SDL_RenderDrawRect(Renderer, &bound_rect);
+	}
+
+//#endif // TILE_COLLISION_DEBUG_RENDER
+
+	
+	//const SDL_Rect mid_rect{ SCREEN_WIDTH / 2 -10, SCREEN_HEIGHT / 2 - 10, 20, 20};
+	//SDL_SetRenderDrawColor(Renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
+	//SDL_RenderDrawRect(Renderer, &mid_rect);
 
 	//for (auto&& npc : w_obj.GetNpcArr())
-	for (auto&& npc : w_obj.GetNpcArr())
+	//for (auto&& npc : w_obj.GetNpcArr())
+	for (auto&& npc : w_obj.GetNpcLocationVector(m_current_location))
 	{
 		npc->OnRender(Renderer);
-		npc->DrawBoundingRect(Renderer);
+		//npc->DrawBoundingRect(Renderer);
 	}
 	
 	if (m_state == STATE_ENUM::DIALOGUE)
 	{
-		TextureBank::Get("dialogue_frame")->Render(380, 850);
-		text_texture.Render(400, 900);
+		/*TextureBank::Get("dialogue_frame")->Render(380, 850);
+		text_texture.Render(400, 900);*/
+
+		m_dial_gui.OnRender();
 	}
 	   
 	//for (int i = 0; i < w_obj.GetNpcArr().size(); i++) {
@@ -269,6 +500,27 @@ void App::Render()
 	//TextureBank::Get("char_ss")->Render(npc.m_x, npc.m_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, 4 * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
 
 	//CAppStateManager::OnRender();
+
+#if FPS_DEBUG_RENDER
+	int fps = CFPS::FPSControl.GetFPS();
+
+	DebugRenderer::get().AddDebugLine("FPS","FPS: " + Stringify::Int(fps), Renderer);
+	DebugRenderer::get().AddDebugLine("PlayerX", "Player X: " + Stringify::Int(player.m_x), Renderer);
+	DebugRenderer::get().AddDebugLine("PlayerY", "Player Y: " + Stringify::Int(player.m_y), Renderer);
+	DebugRenderer::get().AddDebugLine("InteractivesSize", "Interactive SizE: " + Stringify::Int(w_obj.GetInteractableVector(m_current_location).size()), Renderer);
+	DebugRenderer::get().OnRender(Renderer);
+
+	//std::shared_ptr<Texture> fps_texture = std::make_shared<Texture>();
+	//if (!m_font)
+	//{
+	//	std::cout << "Missing font in DEBUG fps render ... \n";
+	//}
+	//fps_texture->loadFromRenderedText(Renderer, "FPS: " + Stringify::Int(fps), { 0,0,0 }, m_debug_font);
+	//fps_texture->Render(50, 50);
+
+#endif
+
+
 
 	SDL_RenderPresent(Renderer);            // glowna funkcja resetujaca obraz
 }
@@ -288,9 +540,14 @@ void App::Cleanup()
 		Window = NULL;
 	}
 
-	//Free  font
+	//Free  fonts
 	TTF_CloseFont(m_font);
 	m_font = nullptr;
+
+#if FPS_DEBUG_RENDER
+	TTF_CloseFont(m_debug_font);
+	m_debug_font = nullptr;
+#endif
 
 	//if (m_font) {
 	//	TTF_CloseFont(m_font);
@@ -314,7 +571,7 @@ void App::Cleanup()
 
 	//    Mix_CloseAudio();
 
-
+	m_dial_gui.Cleanup();
 	TTF_Quit();
 	IMG_Quit();
 	SDL_Quit();
@@ -347,6 +604,15 @@ void App::FontInit()
 		std::cerr << "Error: Unable to open font" << std::endl;
 		return;
 	}
+#if FPS_DEBUG_RENDER
+	if (!(m_debug_font = TTF_OpenFont(font3.c_str(), 26)))
+	{
+		std::cerr << "Error: Unable to open font" << std::endl;
+		return;
+	}
+#endif
+
+	/*TTF_SetFontHinting(m_font, 13);*/
 
 	//int w = 0;
 	//int h = 0;
@@ -360,13 +626,13 @@ void App::FontInit()
 
 	//Render text
 	SDL_Color textColor = { 0, 0, 0 };
-	currently_displayed_line = "";
-	if (!text_texture.loadFromRenderedText(Renderer, currently_displayed_line, textColor, m_font))
-	{
-		printf("Failed to render text texture!\n");
-		//success = false;
-	}
+	currently_displayed_line;
+
 	//text_solid = TTF_RenderText_Solid(font, text.c_str(), red);
+
+
+	m_dial_gui.Init(Renderer, fontfile, "kanapka", "dialogue_frame");
+	m_dial_gui.SetCoords(400, 900, 0.6 * SCREEN_WIDTH, 0.18 * SCREEN_HEIGHT);
 }
 
 //------------------------------------------------------------------------------
@@ -378,21 +644,69 @@ int App::Execute(int argc, char* argv[])
 	if (!Init()) return 0;
 
 	SDL_Event Event;
+	
+	const int FPS = 60;
+	const int frame_delay = 1000 / FPS;
+
+	Uint32 frame_start;
+	int frame_time;
 
 	while (Running) {
+		frame_start = SDL_GetTicks();
 		while (SDL_PollEvent(&Event) != 0) {
 			OnEvent(&Event);
 
 		}
+		const Uint8* keystates = SDL_GetKeyboardState(NULL);
+
+		//if (keystates[SDL_SCANCODE_DOWN])
+		//{
+		//	OnMove(0, 5);
+		//	//player_edge_enum = static_cast<EdgeEnum>(player.IsPlayerAtEdgePosition());
+		//}
+		//else if (keystates[SDL_SCANCODE_UP])
+		//{
+		//	OnMove(0, -5);
+		//	//player.IsPlayerAtEdgePosition();
+		//}
+		//else if (keystates[SDL_SCANCODE_RIGHT])
+		//{
+		//	OnMove(5, 0);
+		//	//player.IsPlayerAtEdgePosition();
+		//}
+		//else if (keystates[SDL_SCANCODE_LEFT])
+		//{
+		//	OnMove(-5, 0);
+		//	//player.IsPlayerAtEdgePosition();
+		//}
+
 		Loop();		// Update 60 times per second ?
 		Render();
 
-		SDL_Delay(1); // Breath
+		//SDL_Delay(1); // Breath
+		CFPS::FPSControl.OnLoop();
+
+		frame_time = SDL_GetTicks() - frame_start;
+
+		if (frame_delay > frame_time)
+		{
+			SDL_Delay(frame_delay - frame_time); // Breath
+		}
+
+		//char Buffer[255];
+		//sprintf(Buffer, "%d", CFPS::FPSControl.GetFPS());
+		//std::cout << CFPS::FPSControl.GetFPS() << std::endl;
+		//SDL_WM_SetCaption(Buffer, Buffer);
 	}
 
 	Cleanup();
 
 	return 1;
+}
+
+void App::SetLocation(std::shared_ptr<Location> current_location)
+{
+	m_current_location = current_location;
 }
 
 
@@ -414,6 +728,117 @@ App* App::GetInstance() { return &App::Instance; }
 //------------------------------------------------------------------------------
 bool App::Init()
 {
+	Log::Init();
+	CORE_WARN("Initialized log!");
+	auto& config = Config::GetInstance();
+	config.tuning_config.ParseTuningConfig(config.m_ConfigFilename);
+	int a = 14;
+	INFO("Hello! Var={0}", a);
+	if (!PrimarySDLInit())
+	{
+		return false;
+	}
+	// Load all of our Textures (see TextureBank class for expected folder)
+	if (TextureBank::Init() == false) {
+		//Log("Unable to init TextureBank");
+		return false;
+	}
+
+
+	FontInit();
+
+#if DEBUG_MODE
+	int x0 = SET_PLAYER_X0();
+	int y0 = SET_PLAYER_Y0();
+
+	player.SetPosition(x0, y0);
+
+	STARTING_LOCATION_FILENAME_NO_EXT = SET_STARTING_LOCATION();
+	STARTING_LOCATION_PATH = "res/map/" + STARTING_LOCATION_FILENAME_NO_EXT + ".lua";
+
+	m_render_player_collision = DEBUG_RENDER_PLAYER_COLLISION();
+	DebugRenderer::get().SetFont(m_debug_font);
+
+#endif
+
+	//if (TTF_Init() == -1) {
+	//	printf("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
+	//	return false;
+	//}
+
+	//m_font = TTF_OpenFont("res/Fonts/lazy2.ttf", 28);
+	//if (m_font == nullptr) {
+	//	printf("Failed to load lazy font! SDL_ttf Error: %s\n", TTF_GetError());
+	//	return false;
+	//}
+
+	//if (TextureBank::InitTextureBankForArea("starting_area.txt") == false)
+	//{
+	//	Log("Unable to init TextureBank");
+	//	return false;
+	//}
+
+	//BackgroundWidth = TextureBank::Get("BackGroundTest20")->GetWidth(); // 1920
+ //   BackgroundHeight = TextureBank::Get("BackGroundTest20")->GetWidth() ; // 1024
+
+	//w_obj.GetLocation("start_1")->OnLoad("res/map/map3.txt");
+	//Location::starting_loc_elements.OnLoad("res/map/map3_addons.txt");
+	//if (!Location::starting_loc_elements.OnLoadLua("res/map/start_1.lua", 2) || !m_current_location->OnLoadLua("res/map/start_1.lua", 1))
+
+
+	LoadAllEntrancePoints();
+	if (!LoadLocationsResources())
+	{
+		// FATAL
+		std::cout << "Failed to load locations resources\n";
+		return false;
+	}
+
+	//if (!Location::starting_loc_elements.OnLoadLua(STARTING_LOCATION_PATH, 2) || !m_current_location->OnLoadLua(STARTING_LOCATION_PATH, 1))
+	//{
+	//	return false;
+	//}
+
+
+	m_current_location->LoadWaypointsLua(STARTING_LOCATION_PATH);
+
+	area_cam.SetLimits(m_current_location->GetLocationWidth(), m_current_location->GetLocationHeight());
+	area_cam.SetCameraBasedOnPlayerPos(player.m_x, player.m_y);
+
+	//for (auto&& npc : w_obj.GetNpcArr())
+
+
+
+	//NPC* los = new NPC{ 400, 400, 0, 1, 4 };
+	//EntityWalker::m_entity_arr.emplace_back(los);
+	
+	TextureBank::Get("dialogue_frame")->setAlpha(101);
+	TextureBank::Get("dialogue_frame")->setBlendMode(SDL_BLENDMODE_BLEND);
+
+
+
+	for (auto&& npc : w_obj.GetNpcLocationVector(m_current_location))
+	{
+		npc->SetCamera(&area_cam);
+		npc->SetDebugFont(m_font);
+	}
+
+	m_dial_controller.SetDialogGui(&m_dial_gui);
+
+	//EntityWalker::m_entity_arr.emplace_back(NPC{1000, 400, 0, 4, 0});
+
+		/*npc_arr.push_back(std::make_unique<NPC>(400, 400, 0, 1, 4));
+	npc_arr.push_back(std::make_unique<NPC>(1000, 400, 0, 4, 0));*/
+
+	//CAppStateManager::SetActiveAppState(APPSTATE_DIALOGUE_TEST, Renderer);
+
+	//ReadMap();
+
+	return true;
+}
+
+bool App::PrimarySDLInit()
+{
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
 		//Log("Unable to Init SDL: %s", SDL_GetError());
 		return false;
@@ -428,25 +853,6 @@ bool App::Init()
 	{
 		printf("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
 	}
-
-	//lua_State* L = luaL_newstate();
-	// Init LUA
-	
-	/*lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::table);
-	std::string lua_script_path("res/scripts/dialogues/kedar.lua");
-	lua.script_file(lua_script_path);*/
-
-	//lua.script("CurrentDialog = gossip2");
-	//lua["CurrentDialog"] = lua.g
-
-	//sol::object number_obj = lua.get<sol::object>("number");
-	//e = (lua["gossip"]);
-	//std::cout << e << std::endl;
-
-	//e = (lua["gossip2"]);
-	//std::cout << e << std::endl;
-	/*e = (lua["CurrentDialog"]["say"]);
-	std::cout << e << std::endl;*/
 
 	int i;
 
@@ -473,9 +879,12 @@ bool App::Init()
 	//const int SCREEN_WIDTH = 640;
 	//const int SCREEN_HEIGHT = 480;
 
+	SCREEN_WIDTH = current.w;
+	SCREEN_HEIGHT = current.h;
+
 	//title = "My SDL Game";
 	if ((Window = SDL_CreateWindow(
-		"My SDL Game",
+		"Place of Tomorrow",
 		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 		current.w, current.h, SDL_WINDOW_SHOWN) // || SDL_WINDOW_FULLSCREEN
 		) == NULL)
@@ -500,54 +909,222 @@ bool App::Init()
 		//Log("Unable to init SDL_image: %s", IMG_GetError());
 		return false;
 	}
-	// Load all of our Textures (see TextureBank class for expected folder)
-	if (TextureBank::Init() == false) {
-		//Log("Unable to init TextureBank");
-		return false;
-	}
-
-	//if (TTF_Init() == -1) {
-	//	printf("SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError());
-	//	return false;
-	//}
-
-	//m_font = TTF_OpenFont("res/Fonts/lazy2.ttf", 28);
-	//if (m_font == nullptr) {
-	//	printf("Failed to load lazy font! SDL_ttf Error: %s\n", TTF_GetError());
-	//	return false;
-	//}
-
-	//if (TextureBank::InitTextureBankForArea("starting_area.txt") == false)
-	//{
-	//	Log("Unable to init TextureBank");
-	//	return false;
-	//}
-
-	//BackgroundWidth = TextureBank::Get("BackGroundTest20")->GetWidth(); // 1920
- //   BackgroundHeight = TextureBank::Get("BackGroundTest20")->GetWidth() ; // 1024
-
-	BackgroundWidth = 1920; // 1920
-	BackgroundHeight = 1024; // 1024
-
-	//Location::starting_loc.OnLoad("res/map/map3.txt");
-	Location::starting_loc_elements.OnLoad("res/map/map3_addons.txt");
-	Location::starting_loc.OnLoadLua("res/map/start_2.lua");
-
-	//NPC* los = new NPC{ 400, 400, 0, 1, 4 };
-	//EntityWalker::m_entity_arr.emplace_back(los);
-	TextureBank::Get("dialogue_frame")->setAlpha(157);
-
-	FontInit();
-	//EntityWalker::m_entity_arr.emplace_back(NPC{1000, 400, 0, 4, 0});
-
-		/*npc_arr.push_back(std::make_unique<NPC>(400, 400, 0, 1, 4));
-	npc_arr.push_back(std::make_unique<NPC>(1000, 400, 0, 4, 0));*/
-
-	//CAppStateManager::SetActiveAppState(APPSTATE_DIALOGUE_TEST, Renderer);
-
-	//ReadMap();
 	return true;
 }
+
+void App::MoveToAnotherLocationSequence()
+{
+	if (leaving_location)
+	{
+		fade_out_value -= fade_out_inc;
+		if (fade_out_value == 0)
+		{
+			leaving_location = false;
+
+			player.SetLocation(entered_loc);
+			player.SetPosition(loc_x, loc_y);
+			SetLocation(entered_loc);
+
+			area_cam.SetLimits(m_current_location->GetLocationWidth(), m_current_location->GetLocationHeight());
+			area_cam.SetCameraBasedOnPlayerPos(player.m_x, player.m_y);
+
+			entering_location = true;
+		}
+	}
+	else if (entering_location)
+	{
+		fade_out_value += fade_out_inc;
+		if (fade_out_value == 255)
+		{
+			entering_location = false;
+		}
+	}
+
+}
+
+bool App::LoadLocationsResources()
+{
+	return w_obj.LoadResources();
+}
+
+bool App::LoadAllEntrancePoints()
+{
+	for (const auto& entry : std::filesystem::directory_iterator(MAP_RESOURCE_LOCATION))
+	{
+//		std::cout << entry.path().extension() << std::endl;
+		if (entry.path().extension() == ".lua")
+		{
+			auto loc = std::make_shared<Location>(entry.path().stem().string());
+			w_obj.AddEmptyLocation(loc);
+			LoadWaypointsLua(entry.path().string());
+			//std::cout << entry.path().extension() << std::endl;
+
+
+		}
+	}
+	w_obj.AssociateEntranceToEndpoint();
+	w_obj.AssociateEntrypointsToLocations();
+	w_obj.AssociateEndpointsToLocations();
+	m_current_location = w_obj.GetLocation(STARTING_LOCATION_FILENAME_NO_EXT);
+	//m_current_location = w_obj.GetLocation("start_1");
+	player.SetLocation(m_current_location);
+
+	return false;
+}
+
+// 04082020
+//bool App::LoadWaypointsLua(char* filename)
+bool App::LoadWaypointsLua(const std::string& filename)
+{
+	static const char LUA_MAP_HEADER[] = "abc";
+	static const char LUA_LAYERS[] = "layers";
+	static const char LUA_PROPERTIES[] = "properties";
+	static const char LUA_OBJECTS[] = "objects";
+
+	bool success = true;
+	if (std::filesystem::exists(filename))
+	{
+		//std::cout << std::filesystem::path(filename).stem() << std::endl;
+		sol::state lua;
+		lua.open_libraries(sol::lib::base, sol::lib::package, sol::lib::table);
+		auto ab = lua.script_file(filename);
+
+		// Step 1 find id coressponding to object layer
+		// In order to do so iterate over layers checking if optional is true
+
+		int id = 1;
+
+		sol::optional<sol::table> conf = lua[LUA_MAP_HEADER][LUA_LAYERS][id];
+
+		while (conf)
+		{
+			std::string type = lua[LUA_MAP_HEADER][LUA_LAYERS][id]["type"];
+			if (type == "objectgroup")
+			{
+				//std::cout << "objectgroup @ " << id << std::endl;
+
+				int object_id = 1;
+				sol::optional<sol::table> object_group_objects = lua[LUA_MAP_HEADER][LUA_LAYERS][id][LUA_OBJECTS][object_id][LUA_PROPERTIES];
+				while (object_group_objects)
+				{
+					for (const auto& key_value_pair : object_group_objects.value())
+					{
+						sol::object key = key_value_pair.first;
+						sol::object value = key_value_pair.second;
+						std::string k = key.as<std::string>();
+						sol::type t = value.get_type();
+
+						if (k == "GoTo")
+						{
+							//std::cout << "GoTo:" << value.as < std::string>() << std::endl;
+							sol::optional<float> wp_y = lua[LUA_MAP_HEADER][LUA_LAYERS][id][LUA_OBJECTS][object_id]["y"];
+							sol::optional<float> wp_x = lua[LUA_MAP_HEADER][LUA_LAYERS][id][LUA_OBJECTS][object_id]["x"];
+							sol::optional<float> wp_width = lua[LUA_MAP_HEADER][LUA_LAYERS][id][LUA_OBJECTS][object_id]["width"];
+							sol::optional<float> wp_height = lua[LUA_MAP_HEADER][LUA_LAYERS][id][LUA_OBJECTS][object_id]["height"];
+
+							int x = int(SPRITE_SCALE) * wp_x.value();
+							int y = int(SPRITE_SCALE) * wp_y.value();
+							int w = int(SPRITE_SCALE) * wp_width.value();
+							int h = int(SPRITE_SCALE) * wp_height.value();
+
+							//if (wp_y)
+							//{
+							//	std::cout << " 6 * float wp_y = " << int(SPRITE_SCALE) * wp_y.value() << std::endl;
+							//}
+							//else
+							//{
+							//	// FATAL
+							//	std::cout << " error obtaining  wp_y.value() " << std::endl;
+							//}
+
+							//if (wp_x)
+							//{
+							//	std::cout << "6 *  float wp_x = " << int(SPRITE_SCALE) * wp_x.value() << std::endl;
+							//}
+							//else
+							//{
+							//	// FATAL
+							//	std::cout << " error obtaining  wp_x.value() " << std::endl;
+							//}
+
+							//if (wp_width)
+							//{
+							//	std::cout << " 6 * float wp_width = " << int(SPRITE_SCALE) * wp_width.value() << std::endl;
+							//}
+							//else
+							//{
+							//	// FATAL
+							//	std::cout << " error obtaining  wp_width.value() " << std::endl;
+							//}
+
+							//if (wp_height)
+							//{
+							//	std::cout << "6 *  float wp_height = " << int(SPRITE_SCALE) * wp_height.value() << std::endl;
+							//}
+							//else
+							//{
+							//	// FATAL
+							//	std::cout << " error obtaining  wp_height.value() " << std::endl;
+							//}
+							//ExitWaypoint(int x, int y, int width, int height) : m_x0(x), m_y0(y), m_width(width), m_height(height)
+							ExitWaypoint exit_wp(std::filesystem::path(filename).stem().string(), value.as < std::string>(), x, y, w, h);
+							w_obj.AddExitWaypoint(exit_wp);
+						}
+						else if (k == "Entrance")
+						{
+							//std::cout << "Entrance:" << value.as < std::string>() << std::endl;
+							sol::optional<float> wp_y = lua[LUA_MAP_HEADER][LUA_LAYERS][id][LUA_OBJECTS][object_id]["y"];
+							sol::optional<float> wp_x = lua[LUA_MAP_HEADER][LUA_LAYERS][id][LUA_OBJECTS][object_id]["x"];
+
+							//if (wp_y)
+							//{
+							//	std::cout << " 6 * float wp_y = " << int(SPRITE_SCALE) * wp_y.value() << std::endl;
+							//}
+							//else
+							//{
+							//	// FATAL
+							//	std::cout << " error obtaining  wp_y.value() " << std::endl;
+							//}
+
+							//if (wp_x)
+							//{
+							//	std::cout << "6 *  float wp_x = " << int(SPRITE_SCALE) * wp_x.value() << std::endl;
+							//}
+							//else
+							//{
+							//	// FATAL
+							//	std::cout << " error obtaining  wp_x.value() " << std::endl;
+							//}
+
+							EntranceWaypoint entry_wp(std::filesystem::path(filename).stem().string(), value.as < std::string>(), static_cast<int>(SPRITE_SCALE * wp_x.value()), static_cast<int>(SPRITE_SCALE * wp_y.value()));
+							w_obj.AddEntranceWaypoint(entry_wp);
+						}
+					}
+					object_id++;
+					sol::optional<sol::table> tmp = lua[LUA_MAP_HEADER][LUA_LAYERS][id][LUA_OBJECTS][object_id][LUA_PROPERTIES];
+					object_group_objects = tmp;
+				}
+				//else
+				//{
+				//	std::cout << " Missing object_group waypoint properties !\n";
+				//}
+
+				//break;
+			}
+			id++;
+			sol::optional<sol::table> conf2 = lua[LUA_MAP_HEADER][LUA_LAYERS][id];
+			conf = conf2;
+		}
+	}
+	else
+	{
+		std::cout << " File " << filename << " does not exist !\n";
+		success = false;
+	}
+
+	return success;
+}
+
 
 //------------------------------------------------------------------------------
 

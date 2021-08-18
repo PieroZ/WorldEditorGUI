@@ -75,13 +75,30 @@ void Texture::setAlpha(Uint8 alpha)
 	SDL_SetTextureAlphaMod(SDLTexture, alpha);
 }
 
+void Texture::setColor(Uint8 r, Uint8 g, Uint8 b)
+{
+	SDL_SetTextureColorMod(SDLTexture, r,g,b);
+}
+
+void Texture::setBlendMode(SDL_BlendMode blendMode)
+{
+	SDL_SetTextureBlendMode(SDLTexture, blendMode);
+}
+
+int Texture::GetLineWrapLimit()
+{
+	return LINE_WRAP_LIMIT;
+}
+
 bool Texture::loadFromRenderedText(SDL_Renderer* renderer, const std::string& textureText, SDL_Color textColor, TTF_Font* gFont)
 {
 	Renderer = renderer;
 	//Get rid of preexisting texture
 	//free();
 	//Render text surface
-	SDL_Surface* textSurface = TTF_RenderText_Blended_Wrapped(gFont, textureText.c_str(), textColor, 1100);
+
+	// TODO RESOLUTION HARDCODE:
+	SDL_Surface* textSurface = TTF_RenderText_Blended_Wrapped(gFont, textureText.c_str(), textColor, LINE_WRAP_LIMIT);
 	//TTF_SetFontOutline(gFont, 1);
 	//SDL_Surface* textSurface = TTF_RenderUTF8_Solid(gFont, textureText.c_str(), textColor);
 	

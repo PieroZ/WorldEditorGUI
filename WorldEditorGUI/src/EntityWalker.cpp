@@ -1,17 +1,36 @@
 #include "EntityWalker.h"
 #include "TextureBank.h"
+#include "App.h"
 
 std::vector<EntityWalker*>     EntityWalker::m_entity_arr;
 
-EntityWalker::EntityWalker(int x, int y, int id, uint8_t sprite_x, uint8_t sprite_y) : m_id(id), m_sprite_x(sprite_x), m_sprite_y(sprite_y)
+//EntityWalker::EntityWalker(App& world, std::shared_ptr<Location> occupied_location, int x, int y, int id, uint8_t sprite_x, uint8_t sprite_y) : m_world(world), m_occupied_location(occupied_location), m_id(id), m_sprite_x(sprite_x), m_sprite_y(sprite_y)
+EntityWalker::EntityWalker(std::shared_ptr<Location> occupied_location, int x, int y, int id, uint8_t sprite_x, uint8_t sprite_y) : IInteractable(occupied_location), m_id(id)//, m_sprite_x(sprite_x), m_sprite_y(sprite_y)
+{
+	m_x = x;
+	m_y = y;
+}
+//EntityWalker::EntityWalker(App& world, int x, int y, int id, uint8_t sprite_x, uint8_t sprite_y) : m_world(world), m_id(id), m_sprite_x(sprite_x), m_sprite_y(sprite_y)
+EntityWalker::EntityWalker(int x, int y, int id, uint8_t sprite_x, uint8_t sprite_y) : m_id(id)//, m_sprite_x(sprite_x), m_sprite_y(sprite_y)
 {
 	m_x = x;
 	m_y = y;
 }
 
+EntityWalker::EntityWalker()
+{
+}
+
+
 SDL_Point EntityWalker::GetMapCoordinates() const
 {
 	return { m_x, m_y };
+}
+
+void EntityWalker::SetPosition(int x, int y)
+{
+	m_x = x;
+	m_y = y;
 }
 
 bool EntityWalker::Collides(int oX, int oY, int oW, int oH)
@@ -22,19 +41,19 @@ bool EntityWalker::Collides(int oX, int oY, int oW, int oH)
 	int bottom1, bottom2;
 
 
-	int tX = m_x;// + Col_X;
-	int tY = m_y;// + Col_Y;
+	int tX = m_x + Col_X;// + Col_X;
+	int tY = m_y + Col_Y;// + Col_Y;
 
 	left1 = tX;
 	left2 = oX;
 
-	right1 = left1 + SCALED_HERO_SPRITE_WIDTH - 1;// - Col_Width;
+	right1 = left1 + Col_Width - 1;// - Col_Width;
 	right2 = oX + oW - 1;
 
 	top1 = tY;
 	top2 = oY;
 
-	bottom1 = top1 + SCALED_HERO_SPRITE_HEIGHT - 1;// - Col_Height;
+	bottom1 = top1 + Col_Height - 1;// - Col_Height;
 	bottom2 = oY + oH - 1;
 
 
@@ -59,7 +78,8 @@ bool EntityWalker::IsPosValid(int NewX, int NewY)
 
 	for (int iY = StartY; iY <= EndY; iY++) {
 		for (int iX = StartX; iX <= EndX; iX++) {
-			CTile* Tile = Location::starting_loc.GetTile(iX * SCALED_SPRITE_WIDTH, iY * SCALED_SPRITE_HEIGHT);
+			//CTile* Tile = Location::starting_loc.GetTile(iX * SCALED_SPRITE_WIDTH, iY * SCALED_SPRITE_HEIGHT);
+			CTile* Tile = m_occupied_location->GetTile(iX * SCALED_SPRITE_WIDTH, iY * SCALED_SPRITE_HEIGHT);
 
 			if (PosValidTile(Tile) == false) 
 			{
@@ -111,6 +131,25 @@ bool EntityWalker::PosValidEntity(EntityWalker* Entity, int NewX, int NewY)
 
 	return true;
 }
+
+EntityWalker::Direction EntityWalker::GetDir() const
+{
+	return m_dir;
+}
+//
+//// TODO:
+//// Move to Interactable probably
+//void EntityWalker::SetLocation(std::shared_ptr<Location> occupied_loc)
+//{
+//	// ? :D
+//	//m_world.SetLocation(occupied_loc);
+//	m_occupied_location = occupied_loc;
+//}
+//
+//std::shared_ptr<Location> EntityWalker::GetOccupiedLocation()
+//{
+//	return m_occupied_location;
+//}
 
 void EntityWalker::OnRender(SDL_Renderer* renderer)
 {

@@ -1,6 +1,7 @@
 #ifndef _CTILE_H_
 #define _CTILE_H_
-
+#include "SDL.h"
+//#include "CAnimation.h"
 
 
 enum {
@@ -13,9 +14,12 @@ enum {
 class CTile {
 public:
 	//int     TileID;
-	int     m_tile_x;
-	int     m_tile_y;
+	int     m_tile_spritesheet_x;
+	int     m_tile_spritesheet_y;
 	int     TypeID;
+
+	SDL_Rect m_collider;
+	//CAnimation m_tile_animation;
 
 public:
 	CTile();

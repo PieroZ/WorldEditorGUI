@@ -2,6 +2,9 @@
 
 CFPS CFPS::FPSControl;
 
+const float CFPS::FRAME_RATE = 32.0f;
+
+
 CFPS::CFPS() {
 	OldTime = 0;
 	LastTime = 0;
@@ -21,7 +24,7 @@ void CFPS::OnLoop() {
 		Frames = 0;
 	}
 
-	SpeedFactor = ((SDL_GetTicks() - LastTime) / 1000.0f) * 32.0f;
+	SpeedFactor = ((SDL_GetTicks() - LastTime) / 1000.0f) * FRAME_RATE;
 
 	LastTime = SDL_GetTicks();
 
