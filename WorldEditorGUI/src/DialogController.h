@@ -18,7 +18,8 @@ public:
 
 	bool IsLastLine() const;
 	bool IsChoiceState() const;
-	bool LoadDialog(const std::string& lua_dialog_path, std::shared_ptr<NPC>& npc_dialoguer);
+	//bool LoadDialog(const std::string& lua_dialog_path, std::shared_ptr<NPC>& npc_dialoguer);
+	bool LoadDialog(const std::string& lua_dialog_path, NPC* npc_dialoguer);
 	void SetDialogGui(DialogGUI* dialog_gui);
 	std::string GetCurrentText();
 	void UpdateDialogGui();
@@ -36,7 +37,8 @@ private:
 	std::map<std::string, bool> sol_loaded;
 	std::map<std::string, sol::state*> loaded_states;
 
-	std::shared_ptr<NPC> m_dialogue_owner;
+	//std::shared_ptr<NPC> m_dialogue_owner;
+	NPC* m_dialogue_owner;
 
 
 	inline static const char LUA_CURRENT_DIALOG[] = "CurrentDialog";

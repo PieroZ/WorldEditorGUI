@@ -1,0 +1,11 @@
+# Location vars
+StartingLocation=test_map
+# start_1 test_map mixed_spritesheets_map
+# Debug render vars
+B_RenderNPCNames=0
+B_RenderTilesCollisionBoxes=0
+B_RenderPlayerCollision=0
+B_RenderTilesGrid=0
+# Player vars
+P_StartX=830
+P_StartY=600

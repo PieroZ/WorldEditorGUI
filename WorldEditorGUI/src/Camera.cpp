@@ -1,11 +1,15 @@
 #include "Camera.h"
 #include "Defines.h"
+#include "LocationHelper.h"
+#include "App.h"
+
 
 //Camera::Camera() : m_x(0), m_y(0), m_right_limit(0), m_bottom_limit(0)
 //{
 //}
 
-Camera::Camera(int x, int y, int right_limit, int bottom_limit) : m_x(x), m_y(y), m_right_limit(right_limit), m_bottom_limit(bottom_limit), half_view_width(SCREEN_WIDTH / 2), half_view_height (SCREEN_HEIGHT/2)
+Camera::Camera(App& app, int x, int y, int right_limit, int bottom_limit) :
+	m_app(app), m_x(x), m_y(y), m_right_limit(right_limit), m_bottom_limit(bottom_limit), half_view_width(SCREEN_WIDTH / 2), half_view_height (SCREEN_HEIGHT/2)
 {
 	//if (m_x < 0)
 	//{
@@ -15,7 +19,9 @@ Camera::Camera(int x, int y, int right_limit, int bottom_limit) : m_x(x), m_y(y)
 	//{
 	//	m_y = y;
 	//}
+	TILES_COLS_COUNT_PER_WINDOW_WIDTH = SCREEN_WIDTH / SCALED_SPRITE_WIDTH;
 	SetCameraBasedOnPlayerPos(x, y);	
+	//Update();
 }
 
 void Camera::Move(int dx, int dy)
@@ -39,6 +45,7 @@ void Camera::MoveX(int dx)
 	{
 		m_x += dx;
 	}
+	Update();
 }
 
 void Camera::MoveY(int dy)
@@ -56,6 +63,7 @@ void Camera::MoveY(int dy)
 	{
 		m_y += dy;
 	}
+	Update();
 }
 
 void Camera::SetCameraBasedOnPlayerPos(int p_x, int p_y)
@@ -85,12 +93,16 @@ void Camera::SetCameraBasedOnPlayerPos(int p_x, int p_y)
 	{
 		m_y = p_y;
 	}
+
+	Update();
 }
 
-void Camera::SetLimits(int right_limit, int bottom_limit)
+void Camera::SetLimits(int right_limit, int bottom_limit, int tiles_per_col)
 {
 	m_right_limit = right_limit;
 	m_bottom_limit = bottom_limit;
+	m_tiles_per_col = tiles_per_col;
+	Update();
 }
 
 int Camera::GetX() const
@@ -101,6 +113,80 @@ int Camera::GetX() const
 int Camera::GetY() const
 {
 	return m_y;
+}
+
+SDL_Point Camera::GetTopLeftPos() const
+{
+	return m_top_left;
+}
+
+void Camera::SetX(int x)
+{
+	m_x = x;
+	Update();
+}
+
+void Camera::SetY(int y)
+{
+	m_y = y;
+	Update();
+}
+
+
+// Return true when corner coordinates have changed
+void Camera::Update()
+{
+	int left =  m_x - (SCREEN_WIDTH / 2);
+	int right = m_x + (SCREEN_WIDTH / 2 - 1);
+	int top = m_y - (SCREEN_HEIGHT / 2);
+	int bottom = m_y + (SCREEN_HEIGHT / 2 - 1);
+
+	m_top_left = { left, top };
+
+	m_top_right = { right, top };
+	m_bottom_right = { right, bottom };
+	m_bottom_left = { left, bottom };
+
+
+
+	int top_left_id = floor(LocationHelper::get().GetIdBasedOnXY(m_top_left.x, m_top_left.y, m_tiles_per_col));
+	int top_right_id = top_left_id + GetColsCountPerWindowWidth() + 1;
+	int bottom_right_id = ceil(LocationHelper::get().GetIdBasedOnXY(m_bottom_right.x, m_bottom_right.y, m_tiles_per_col));
+	int bottom_left_id = LocationHelper::get().GetIdBasedOnXY(m_bottom_left.x, m_bottom_left.y, m_tiles_per_col);
+
+	if (	m_top_left_id != top_left_id 
+		||  m_top_right_id != top_right_id
+		||	m_bottom_right_id != bottom_right_id
+		||	m_bottom_left_id != bottom_left_id
+		)
+	{	
+		m_top_left_id = top_left_id;
+		m_top_right_id = top_right_id;
+		m_bottom_right_id = bottom_right_id;
+		m_bottom_left_id = bottom_left_id;
+
+		m_app.UpdateCurrentlyDrawnTilesId();
+	}
+}
+
+int Camera::GetTopLeftID() const
+{
+	return m_top_left_id;
+}
+
+int Camera::GetTopRightID() const
+{
+	return m_top_right_id;
+}
+
+int Camera::GetBottomLeftID() const
+{
+	return m_bottom_left_id;
+}
+
+int Camera::GetBottomRightID() const
+{
+	return m_bottom_right_id;
 }
 
 bool Camera::IsLeftEdge(int x)
@@ -131,4 +217,9 @@ bool Camera::CanMoveX(int x)
 bool Camera::CanMoveY(int y)
 {
 	return (y < m_bottom_limit - 1) && (y > 0);
+}
+
+int Camera::GetColsCountPerWindowWidth() const
+{
+	return TILES_COLS_COUNT_PER_WINDOW_WIDTH;
 }

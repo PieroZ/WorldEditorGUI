@@ -169,7 +169,7 @@ void PlayerWalker::CheckBorder()
 {
 }
 
-void PlayerWalker::Interact()
+void PlayerWalker::Interact(App* app)
 {
 }
 

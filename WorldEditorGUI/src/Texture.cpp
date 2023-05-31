@@ -92,6 +92,13 @@ int Texture::GetLineWrapLimit()
 
 bool Texture::loadFromRenderedText(SDL_Renderer* renderer, const std::string& textureText, SDL_Color textColor, TTF_Font* gFont)
 {
+
+	if (SDLTexture)
+	{
+		SDL_DestroyTexture(SDLTexture);
+		SDLTexture = NULL;
+	}
+
 	Renderer = renderer;
 	//Get rid of preexisting texture
 	//free();

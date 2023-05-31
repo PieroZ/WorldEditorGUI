@@ -29,8 +29,8 @@ public:
 	int GetSpriteIdFromDir(const Direction& dir) const;
 	void SetSpriteXYFromDir(const Direction& dir);
 
-	// Inherited via IInteractable
-	virtual void Interact() override;
+	// Inherited via IInteractive
+	virtual void Interact(App* app) override;
 	void FillWithDBData(const DBCharacterEntry& entry);
 	bool HasDialogue() const;	
 	static void ReadLuaTableValues(sol::table properties);

@@ -1,12 +1,12 @@
 #pragma once
 #include <SDL.h>
 #include "Location.h"
-#include "IInteractable.h"
+#include "IInteractive.h"
 #include "RenderableSprite.h"
 
 class App;
 
-class EntityWalker : public IInteractable, public RenderableSprite
+class EntityWalker : public IInteractive, public RenderableSprite
 {
 public:
 
@@ -45,6 +45,11 @@ public:
 	// OBSOLETE
 	//uint8_t m_sprite_x, m_sprite_y;
 
-	// Inherited via IInteractable
-	virtual void Interact() override;
+	// Inherited via IInteractive
+	virtual void Interact(App* app) override;
+
+	// Inherited via IInteractive
+	virtual int GetCorrespondingTileIds() const override;
+	int GetBottomRightSpriteTileId() const;
+	int GetTopLeftSpriteTileId() const;
 };

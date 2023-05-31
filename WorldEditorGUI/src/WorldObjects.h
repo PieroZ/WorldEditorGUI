@@ -8,6 +8,9 @@
 #include "CSVCharactersParser.h"
 #include "CSVFactsParser.h"
 
+
+class SavePoint;
+
 class App;
 
 class PlayerWalker;
@@ -27,6 +30,9 @@ public:
 	bool IsInteractableAt(EntityWalker::Direction player_dir, int player_x, int player_y, bool& is_dialogue, std::shared_ptr<NPC>& interact);
 	
 	bool IsInteractableAt(PlayerWalker& player, bool& is_dialogue, std::shared_ptr<NPC>& interact, std::shared_ptr<Location> loc);
+	bool IsInteractiveAt(const int tile_id, std::shared_ptr<Location> loc);
+
+	std::shared_ptr<IInteractive> GetInteractiveAt(const int tile_id, std::shared_ptr<Location> loc);
 
 	//bool IsInteractableAt(int x, int y, bool& is_dialogue, uint32_t& interactable_id);
 	std::string PlayDialogue(std::shared_ptr<NPC> dialogue_holder, bool& last_line);
@@ -35,8 +41,11 @@ public:
 	bool IsPosValid(EntityWalker* ent, int NewX, int NewY, std::shared_ptr<Location> loc);
 	bool PosValidTile(CTile* Tile);
 	bool IsTileCollidable(std::shared_ptr<CTile> Tile);
+	bool DoesEntityColliadeWithTile(std::shared_ptr<SDL_Rect> tile_collision, const SDL_Rect& entity_collision);
 	bool DoesEntityColliadeWithTile(const SDL_Rect& tile_collision, const SDL_Rect& entity_collision);
 	bool PosValidEntity(std::shared_ptr<EntityWalker> Entity, int NewX, int NewY, int col_x, int col_y, int col_w, int col_h);
+
+	std::vector<std::shared_ptr<SDL_Rect>> GetNearbyCollisionTiles(int x, int min_distance, std::vector<std::shared_ptr<SDL_Rect>> location_collisions);
 
 public:
 	std::vector<std::shared_ptr<NPC>>& GetNpcArr();
@@ -56,19 +65,25 @@ public:
 	void LoadLocationInteractables(const std::shared_ptr<Location>& loc);
 	bool LoadFacts();
 	bool LoadResources();
-	bool LoadNpcsInLocation(const std::string& map_file_path, std::shared_ptr<Location> location);
+	bool LoadInteractivesInLocation(const std::string& map_file_path, std::shared_ptr<Location> location, std::vector<std::shared_ptr<SavePoint>> location_save_points);
+	void AssignSavePointsInLocation(std::shared_ptr<Location> location, std::vector<std::shared_ptr<SavePoint>> location_save_points);
 
 	EntranceWaypoint* GetEntryPoint(const std::string& entrance_waypoint_name);
 	std::shared_ptr<Location> GetLocation(const std::string& location_name);
 
 	std::vector<std::shared_ptr<NPC>> GetNpcLocationVector(const std::shared_ptr<Location>& loc) const;
-	std::vector<std::shared_ptr<IInteractable>> GetInteractableVector(const std::shared_ptr<Location>& loc) const;
+	std::vector<std::shared_ptr<IInteractive>> GetInteractableVector(const std::shared_ptr<Location>& loc) const;
+
+private:
+	std::vector<int> GetTilesIdsWithOverlapingBounds(const std::shared_ptr<Location>& loc, std::vector<std::shared_ptr <CTile>>& tiles_in_layer, int& width, int& height);
+	//std::map<std::pair<int, int>, std::vector<int>> GetOverlappedIds(std::vector<int>& tiles_ids_with_larger_size, int width, int height, int tiles_per_row, int layer_id);
+	void GetOverlappedIds(std::vector<int>& tiles_ids_with_larger_size, int width, int height, int tiles_per_row, int layer_id);
 
 private:
 	std::vector<std::shared_ptr<NPC>>  npc_arr;
-	std::vector<std::shared_ptr<IInteractable>>  interactable_arr;
+	std::vector<std::shared_ptr<IInteractive>>  interactable_arr;
 	std::unordered_map< std::shared_ptr<Location>, std::vector<std::shared_ptr<NPC>>> npcs_location_map;
-	std::unordered_map< std::shared_ptr<Location>, std::vector<std::shared_ptr<IInteractable>>> interactables_location_map;
+	std::unordered_map< std::shared_ptr<Location>, std::vector<std::shared_ptr<IInteractive>>> interactables_location_map;
 //	std::vector<std::string> locations_name_arr;
 
 	std::vector< std::shared_ptr<Location>> m_world_locations;

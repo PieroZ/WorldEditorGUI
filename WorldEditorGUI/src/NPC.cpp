@@ -5,6 +5,8 @@
 #include "ActiveFactStates.h"
 #include "Config.h"
 
+#include "App.h"
+
 
 #include <iostream>
 
@@ -34,6 +36,10 @@ NPC::NPC(/*App& world,*/ std::shared_ptr<Location> occupied_location, int x, int
 
 NPC::NPC(const std::string& npc_name)
 {
+	Col_X = 7;
+	Col_Y = 76;
+	Col_Width = 72;
+	Col_Height = 80;
 	m_npc_name = npc_name;
 	m_render_npc_name = RENDER_NPC_NAMES();
 }
@@ -86,8 +92,20 @@ void NPC::OnRender(SDL_Renderer* renderer, Uint8 r/* = 255*/, Uint8 g /*= 255*/,
 				}
 			}
 
-		/*	const SDL_Rect rect{ screen_x, screen_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT };
-			SDL_RenderDrawRect(renderer, &rect);*/
+			//const SDL_Rect rect{ screen_x, screen_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT };
+			//SDL_RenderDrawRect(renderer, &rect);
+
+			////if (m_render_player_collision)
+			//{
+			//	//const SDL_Rect col_rect{ player.m_x + player.Col_X, player.m_y + player.Col_Y, player.Col_Width, player.Col_Height };
+			//	const SDL_Rect col_rect{ screen_x + Col_X, screen_y + Col_Y, Col_Width, Col_Height };
+			//	SDL_SetRenderDrawColor(renderer, 255, 255, 0, SDL_ALPHA_OPAQUE);
+			//	SDL_RenderDrawRect(renderer, &col_rect);
+			//	SDL_SetRenderDrawColor(renderer, 0, 0, 255, SDL_ALPHA_OPAQUE);
+			//	
+			//	/*const SDL_Rect bound_rect{ player_screen_x, player_screen_y , SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT };
+			//	SDL_RenderDrawRect(Renderer, &bound_rect);*/
+			//}
 		}
 	}
 }
@@ -393,9 +411,20 @@ void NPC::SetSpriteXYFromDir(const Direction& dir)
 }
 
 // UNUSED ?
-void NPC::Interact()
+void NPC::Interact(App* app)
 {
 	printf("So I guess, I'll just dance !\n");
+
+	if (this->IsRotatable())
+	{
+		this->SetDirBasedOnPlayer(app->player.GetDir());
+	}
+	app->m_state = App::STATE_ENUM::DIALOGUE;
+	//UpdateCurrentlyShownText(w_obj.PlayDialogue(m_npc_currently_interacted_with, m_dialogue_last_line));
+	//m_dial_gui.SetDisplayedText(w_obj.PlayDialogue(m_npc_currently_interacted_with, m_dialogue_last_line));
+	app->m_dial_controller.LoadDialog("res/scripts/dialogues/" + GetNpcName() + ".lua", this);
+	app->m_dial_controller.StartDialog();
+	app->m_dial_controller.ContinueDialog();
 }
 
 void NPC::FillWithDBData(const DBCharacterEntry& entry)

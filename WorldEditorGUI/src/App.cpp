@@ -11,8 +11,12 @@
 #include "Log.h"
 #include "Config.h"
 #include "DebugRenderer.h"
+#include "LocationHelper.h"
+#include "LookupTables.h"
 
 App App::Instance;
+
+std::set<int> ids_set;
 
 
 static int TOTAL_FRAMES = 0;
@@ -50,7 +54,7 @@ static const auto SET_STARTING_LOCATION = ParamsRegister::R_string("StartingLoca
 //App::App() : player(Location::starting_loc, 1920/2, 480), area_cam(player.m_x, player.m_y, 30 * SCALED_SPRITE_WIDTH, 17 * SCALED_SPRITE_HEIGHT)//, npc(400, 400, 0, 0)
 //App::App() : player(*this, 1260, 1290), area_cam(player.m_x, player.m_y, 0, 0)//, npc(400, 400, 0, 0)
 //App::App() : player(*this, 330, 400), area_cam(player.m_x, player.m_y, 0, 0)//, npc(400, 400, 0, 0)
-App::App() : player(330, 400), area_cam(player.m_x, player.m_y, 0, 0)//, npc(400, 400, 0, 0)
+App::App() : player(330, 400), area_cam(*this, player.m_x, player.m_y, 0, 0)//, npc(400, 400, 0, 0)
 //App::App() : player(Location::starting_loc, 1920/2, 480), area_cam(player.m_x, player.m_y, 40 * SCALED_SPRITE_WIDTH, 22 * SCALED_SPRITE_HEIGHT)//, npc(400, 400, 0, 0)
 {
 
@@ -75,7 +79,7 @@ void App::OnMove(int x_speed, int y_speed)
 	if (x_speed != 0 && ((player.m_x >= player_screen_x) && (player.m_x <= (m_current_location->GetLocationWidth() - SCREEN_WIDTH / 2))))
 	{
 		//area_cam.Move(x_speed, 0);
-		area_cam.m_x = player.m_x;
+		area_cam.SetX(player.m_x);
 	}
 
 	int player_screen_y = SCREEN_HEIGHT / 2;
@@ -83,7 +87,7 @@ void App::OnMove(int x_speed, int y_speed)
 	if (y_speed != 0 && ((player.m_y >= player_screen_y) && (player.m_y <= (m_current_location->GetLocationHeight() - SCREEN_HEIGHT / 2))))
 	{
 		//area_cam.Move(0, y_speed);
-		area_cam.m_y = player.m_y;
+		area_cam.SetY(player.m_y);
 	}
 
 
@@ -155,7 +159,12 @@ void App::OnKeyDown(SDL_Event* Event)
 				}
 				if (Event->key.keysym.sym == SDLK_RETURN || Event->key.keysym.sym == SDLK_KP_ENTER)
 				{
-					int tile_id_to_be_interacted_with = m_current_location->GetTileDirId(player.m_x, player.m_y, static_cast<int>(player.m_dir));
+
+					// TODO: FIX THIS SHOULD CHECK ALL THE LAYERS
+					int tile_id_to_be_interacted_with = m_current_location->GetTileDirId(player.m_x + player.Col_X - 1, player.m_y + player.Col_Y - 1,
+						static_cast<int>(player.m_dir));
+
+					std::array<int, 4> ids_to_be_checked = m_current_location->GetTilesIdBasedOnPlayerDir(player.m_x + player.Col_X + player.Col_Width / 2, player.m_y + player.Col_Y + player.Col_Height / 2, static_cast<int>(player.m_dir));
 					int x = 0;
 					int y = 0;
 					//Location::IdToXY(tile_id_to_be_interacted_with, x, y);
@@ -164,22 +173,69 @@ void App::OnKeyDown(SDL_Event* Event)
 
 					bool has_dialogue = false;
 					//uint32_t interactable_id = 0;
-					if (w_obj.IsInteractableAt(player, has_dialogue, m_npc_currently_interacted_with, m_current_location))
+					// Firstly check if NPC stays on that 
+
+
+					//EntityWalker::Direction player_dir = player.GetDir();
+					//int scan_offset_x = 0;
+					//int scan_offset_y = 0;
+
+					//if (player_dir == EntityWalker::Direction::UP)
+					//{
+					//	scan_offset_y = SCALED_HERO_SPRITE_HEIGHT / 2;
+					//}
+					//else if (player_dir == EntityWalker::Direction::LEFT)
+					//{
+					//	scan_offset_x = SCALED_HERO_SPRITE_WIDTH / 2;
+					//}
+					//int x_map = 0, y_map = 0;
+					//player.GetXY(x_map, y_map);
+
+					//int clicked_tile_id = LocationHelper::get().GetIdBasedOnXY(x_map + scan_offset_x, y_map + scan_offset_y, m_current_location->m_tiles_per_col);
+
+					//if (w_obj.IsInteractiveAt(tile_id_to_be_interacted_with, m_current_location))
+
+					std::shared_ptr<IInteractive> player_interaction_target = NULL;
+
+					std::string ids_string;
+
+					for (const auto& id : ids_to_be_checked)
 					{
-						if (has_dialogue)
+						player_interaction_target = w_obj.GetInteractiveAt(id, m_current_location);
+
+						if (player_interaction_target)
 						{
-							if (m_npc_currently_interacted_with->IsRotatable())
-							{
-								m_npc_currently_interacted_with->SetDirBasedOnPlayer(player.GetDir());
-							}
-							m_state = STATE_ENUM::DIALOGUE;
-							//UpdateCurrentlyShownText(w_obj.PlayDialogue(m_npc_currently_interacted_with, m_dialogue_last_line));
-							//m_dial_gui.SetDisplayedText(w_obj.PlayDialogue(m_npc_currently_interacted_with, m_dialogue_last_line));
-							m_dial_controller.LoadDialog("res/scripts/dialogues/" + m_npc_currently_interacted_with->GetNpcName() + ".lua", m_npc_currently_interacted_with);
-							m_dial_controller.StartDialog();
-							m_dial_controller.ContinueDialog();
+							break;
 						}
+						ids_string += Stringify::Int(id);
+						ids_string += ", ";
 					}
+
+					DebugRenderer::get().AddDebugLine("IDClicked", "Recently clicked ID:" + ids_string, App::GetInstance()->GetRenderer());
+
+
+					if (player_interaction_target)
+					{	
+						player_interaction_target->Interact(this);
+					}
+
+					//if (w_obj.IsInteractableAt(player, has_dialogue, m_npc_currently_interacted_with, m_current_location))
+					//{
+					//	m_npc_currently_interacted_with->Interact(this);
+					//	if (has_dialogue)
+					//	{
+					//		if (m_npc_currently_interacted_with->IsRotatable())
+					//		{
+					//			m_npc_currently_interacted_with->SetDirBasedOnPlayer(player.GetDir());
+					//		}
+					//		m_state = STATE_ENUM::DIALOGUE;
+					//		//UpdateCurrentlyShownText(w_obj.PlayDialogue(m_npc_currently_interacted_with, m_dialogue_last_line));
+					//		//m_dial_gui.SetDisplayedText(w_obj.PlayDialogue(m_npc_currently_interacted_with, m_dialogue_last_line));
+					//		m_dial_controller.LoadDialog("res/scripts/dialogues/" + m_npc_currently_interacted_with->GetNpcName() + ".lua", m_npc_currently_interacted_with);
+					//		m_dial_controller.StartDialog();
+					//		m_dial_controller.ContinueDialog();
+					//	}
+					//}
 				}
 			}
 		}
@@ -205,7 +261,7 @@ void App::OnKeyDown(SDL_Event* Event)
 				else
 				{
 
-					if (Event->key.keysym.sym == SDLK_RETURN || Event->key.keysym.sym == SDLK_KP_ENTER)
+					if (IsConfirmButtonPressed(Event))
 					{
 						if (!m_dial_controller.IsLastLine())
 						{
@@ -218,6 +274,40 @@ void App::OnKeyDown(SDL_Event* Event)
 						else
 						{
 							m_dialogue_last_line = false;
+							m_state = STATE_ENUM::NORMAL;
+						}
+					}
+				}
+			}
+		}
+		else if (m_state == STATE_ENUM::SAVE_CHOICE)
+		{
+			if (Event->type == SDL_KEYDOWN)
+			{
+				if (IsDownButtonPressed(Event))
+				{
+					m_window_controller->OnDownKey();
+				}
+				else if (IsUpButtonPressed(Event))
+				{
+					m_window_controller->OnUpKey();
+				}
+				else if (IsConfirmButtonPressed(Event))
+				{
+					bool close_window = false;
+					m_window_controller->OnConfirm(close_window);
+
+					if (close_window)
+					{
+						auto controlled_window = m_window_controller->GetControlledGUI();
+
+						const auto found = find(m_window_guis.begin(), m_window_guis.end(), controlled_window);
+
+						if (found != m_window_guis.end())
+						{
+							m_window_controller.reset();
+							//m_window_guis.erase(std::remove(m_window_guis.begin(), m_window_guis.end(), found), m_window_guis.end());
+							m_window_guis.erase(found);
 							m_state = STATE_ENUM::NORMAL;
 						}
 					}
@@ -332,6 +422,7 @@ void App::Loop()
 	{
 		StopPlayerMovement();
 		MoveToAnotherLocationSequence();
+		UpdateVisibleTexturesAlpha();
 	}
 	//CAppStateManager::OnLoop();
 }
@@ -353,7 +444,7 @@ void App::Render()
 	{
 		for (int c = 0; c < TILES_COLS; ++c)
 		{
-			TextureBank::Get("ss_mod")->Render(c * SCALED_SPRITE_WIDTH, r * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, SPRITE_WIDTH * TEST_TILE_OFF_X, 0, SPRITE_WIDTH, SPRITE_HEIGHT);
+			TextureBank::Get("ss_mod")->Render(c * SCALED_SPRITE_WIDTH, r * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, BASE_SPRITE_WIDTH * TEST_TILE_OFF_X, 0, BASE_SPRITE_WIDTH, BASE_SPRITE_HEIGHT);
 		}
 	}*/
 	
@@ -366,7 +457,7 @@ void App::Render()
 	//g++;
 	//g = g % 256;
 
-	m_current_location->OnRender(Renderer, area_cam.m_x, area_cam.m_y, fade_out_value, fade_out_value, fade_out_value);
+	m_current_location->OnRender(Renderer, area_cam.GetX(), area_cam.GetY(), fade_out_value, fade_out_value, fade_out_value);
 	
 	//Location::starting_loc_elements.OnRender(Renderer, area_cam.m_x, area_cam.m_y);
 
@@ -376,7 +467,7 @@ void App::Render()
 //	int idy = 0;
 //	for (auto&& p : w_obj.GetLocation("start_1")->m_tiles_arr)
 //	{
-//		TextureBank::Get("ss_nomargin")->Render(idx * SCALED_SPRITE_WIDTH, idy * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, p.m_tile_y * SPRITE_WIDTH, p.m_tile_x * SPRITE_HEIGHT, SPRITE_WIDTH, SPRITE_HEIGHT);
+//		TextureBank::Get("ss_nomargin")->Render(idx * SCALED_SPRITE_WIDTH, idy * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, p.m_tile_y * BASE_SPRITE_WIDTH, p.m_tile_x * BASE_SPRITE_HEIGHT, BASE_SPRITE_WIDTH, BASE_SPRITE_HEIGHT);
 //#if TILE_COLLISION_DEBUG_RENDER
 //		const SDL_Rect col_rect{ idx * SCALED_SPRITE_WIDTH, idy * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT };
 //		if (p.TypeID == 2)
@@ -399,7 +490,7 @@ void App::Render()
 //	{
 //		if (p.TypeID != TILE_TYPE_NONE)
 //		{
-//			TextureBank::Get("ss_nomargin")->Render(idx * SCALED_SPRITE_WIDTH, idy * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, p.m_tile_y * SPRITE_WIDTH, p.m_tile_x * SPRITE_HEIGHT, SPRITE_WIDTH, SPRITE_HEIGHT);
+//			TextureBank::Get("ss_nomargin")->Render(idx * SCALED_SPRITE_WIDTH, idy * SCALED_SPRITE_HEIGHT, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, p.m_tile_y * BASE_SPRITE_WIDTH, p.m_tile_x * BASE_SPRITE_HEIGHT, BASE_SPRITE_WIDTH, BASE_SPRITE_HEIGHT);
 //		}
 //		id++;
 //		idx = id % TILES_COLS;
@@ -440,32 +531,12 @@ void App::Render()
 	}
 	
 	SDL_Point sprite_coords = player.GetSpriteCoordinates();
-	if (player.m_moving)
-	{
-		TextureBank::Get("char_ss")->Render(player_screen_x, player_screen_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH * player.player_anim.GetCurrentFrame(), sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
-		//TextureBank::Get("char_ss")->Render(player.m_x, player.m_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH * player.player_anim.GetCurrentFrame(), sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
-	}
-	else
-	{
-		TextureBank::Get("char_ss")->Render(player_screen_x, player_screen_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
-		//TextureBank::Get("char_ss")->Render(player.m_x, player.m_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
-	}
-
 	/*const SDL_Rect rect{ player.m_x, player.m_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT };
 	SDL_RenderDrawRect(Renderer, &rect);*/
 
 
 //#if TILE_COLLISION_DEBUG_RENDER
-	if (m_render_player_collision)
-	{
-		//const SDL_Rect col_rect{ player.m_x + player.Col_X, player.m_y + player.Col_Y, player.Col_Width, player.Col_Height };
-		const SDL_Rect col_rect{ player_screen_x + player.Col_X, player_screen_y + player.Col_Y, player.Col_Width, player.Col_Height };
-		SDL_SetRenderDrawColor(Renderer, 255, 255, 0, SDL_ALPHA_OPAQUE);
-		SDL_RenderDrawRect(Renderer, &col_rect);
-		//SDL_SetRenderDrawColor(Renderer, 0, 0, 255, SDL_ALPHA_OPAQUE);
-		//const SDL_Rect bound_rect{ player_screen_x, player_screen_y , SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT };
-		//SDL_RenderDrawRect(Renderer, &bound_rect);
-	}
+	
 
 //#endif // TILE_COLLISION_DEBUG_RENDER
 
@@ -481,6 +552,28 @@ void App::Render()
 		npc->OnRender(Renderer);
 		//npc->DrawBoundingRect(Renderer);
 	}
+
+	if (player.m_moving)
+	{
+		TextureBank::Get("char_ss")->Render(player_screen_x, player_screen_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH * player.player_anim.GetCurrentFrame(), sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
+		//TextureBank::Get("char_ss")->Render(player.m_x, player.m_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH * player.player_anim.GetCurrentFrame(), sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
+	}
+	else
+	{
+		TextureBank::Get("char_ss")->Render(player_screen_x, player_screen_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
+		//TextureBank::Get("char_ss")->Render(player.m_x, player.m_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
+	}
+
+	if (m_render_player_collision)
+	{
+		//const SDL_Rect col_rect{ player.m_x + player.Col_X, player.m_y + player.Col_Y, player.Col_Width, player.Col_Height };
+		const SDL_Rect col_rect{ player_screen_x + player.Col_X, player_screen_y + player.Col_Y, player.Col_Width, player.Col_Height };
+		SDL_SetRenderDrawColor(Renderer, 255, 255, 0, SDL_ALPHA_OPAQUE);
+		SDL_RenderDrawRect(Renderer, &col_rect);
+		SDL_SetRenderDrawColor(Renderer, 0, 0, 255, SDL_ALPHA_OPAQUE);
+		const SDL_Rect bound_rect{ player_screen_x, player_screen_y , SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT };
+		SDL_RenderDrawRect(Renderer, &bound_rect);
+	}
 	
 	if (m_state == STATE_ENUM::DIALOGUE)
 	{
@@ -488,6 +581,11 @@ void App::Render()
 		text_texture.Render(400, 900);*/
 
 		m_dial_gui.OnRender();
+	}
+
+	for (auto&& window_gui : m_window_guis)
+	{
+		window_gui->Render();
 	}
 	   
 	//for (int i = 0; i < w_obj.GetNpcArr().size(); i++) {
@@ -502,13 +600,7 @@ void App::Render()
 	//CAppStateManager::OnRender();
 
 #if FPS_DEBUG_RENDER
-	int fps = CFPS::FPSControl.GetFPS();
-
-	DebugRenderer::get().AddDebugLine("FPS","FPS: " + Stringify::Int(fps), Renderer);
-	DebugRenderer::get().AddDebugLine("PlayerX", "Player X: " + Stringify::Int(player.m_x), Renderer);
-	DebugRenderer::get().AddDebugLine("PlayerY", "Player Y: " + Stringify::Int(player.m_y), Renderer);
-	DebugRenderer::get().AddDebugLine("InteractivesSize", "Interactive SizE: " + Stringify::Int(w_obj.GetInteractableVector(m_current_location).size()), Renderer);
-	DebugRenderer::get().OnRender(Renderer);
+	DebugRender();
 
 	//std::shared_ptr<Texture> fps_texture = std::make_shared<Texture>();
 	//if (!m_font)
@@ -523,6 +615,201 @@ void App::Render()
 
 
 	SDL_RenderPresent(Renderer);            // glowna funkcja resetujaca obraz
+}
+
+void App::OrderedRender()
+{
+	SDL_RenderClear(Renderer);
+	int player_standing_on_id = player.GetTopLeftSpriteTileId();
+	
+	// Cleanup ?
+	int player_screen_x = SCREEN_WIDTH / 2;
+
+	if (player.m_x < player_screen_x)
+	{
+		player_screen_x = player.m_x;
+	}
+	else if (player.m_x > (m_current_location->GetLocationWidth() - SCREEN_WIDTH / 2))
+	{
+		// SCREEN_WIDTH IS ASSUMED TO BE CAMERA_WIDTH
+		player_screen_x = SCREEN_WIDTH - (m_current_location->GetLocationWidth() - player.m_x);
+	}
+	int player_screen_y = SCREEN_HEIGHT / 2;
+
+	if (player.m_y < player_screen_y)
+	{
+		player_screen_y = player.m_y;
+	}
+	else if (player.m_y > (m_current_location->GetLocationHeight() - SCREEN_HEIGHT / 2))
+	{
+		player_screen_y = SCREEN_HEIGHT - (m_current_location->GetLocationHeight() - player.m_y);
+	}
+
+	SDL_Point sprite_coords = player.GetSpriteCoordinates();
+
+	m_current_location->OnRenderBaseLayer(Renderer, area_cam.GetX(), area_cam.GetY(), fade_out_value, fade_out_value, fade_out_value);
+
+
+	//int id = top_left_id + col_id;
+	//id = id + row_id * m_current_location->m_tiles_per_col;
+
+
+	for (int id : m_currently_drawn_tile_ids)
+	{
+		m_current_location->RenderTile(Renderer, id, area_cam.GetTopLeftPos());
+		if (player_standing_on_id == id)
+		{			
+			if (m_render_player_collision)
+			{
+				//const SDL_Rect col_rect{ player.m_x + player.Col_X, player.m_y + player.Col_Y, player.Col_Width, player.Col_Height };
+				const SDL_Rect col_rect{ player_screen_x + player.Col_X, player_screen_y + player.Col_Y, player.Col_Width, player.Col_Height };
+				SDL_SetRenderDrawColor(Renderer, 255, 255, 0, SDL_ALPHA_OPAQUE);
+				SDL_RenderDrawRect(Renderer, &col_rect);
+				SDL_SetRenderDrawColor(Renderer, 0, 0, 255, SDL_ALPHA_OPAQUE);
+				const SDL_Rect bound_rect{ player_screen_x, player_screen_y , SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT };
+				SDL_RenderDrawRect(Renderer, &bound_rect);
+			}
+		}
+	}
+	//Refactor
+	if (player.m_moving)
+	{
+		TextureBank::Get("char_ss")->Render(player_screen_x, player_screen_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH * player.player_anim.GetCurrentFrame(), sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
+	}
+	else
+	{
+		TextureBank::Get("char_ss")->Render(player_screen_x, player_screen_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
+	}
+
+	for (auto&& npc : w_obj.GetNpcLocationVector(m_current_location))
+	{
+		npc->OnRender(Renderer);
+		//npc->DrawBoundingRect(Renderer);
+	}
+
+	//for (auto&& loc_element_layer : m_tiles_layers)
+	//{
+	//	for (int row_id = 0; row_id < rows_count; ++row_id)
+	//	{
+	//		for (int col_id = 0; col_id < cols_count; ++col_id)
+	//		{
+	//			int id = top_left_id + col_id;
+	//			id = id + row_id * m_current_location->m_tiles_per_col;
+	//			m_current_location->RenderTile(Renderer, id, m_top_left);
+
+	//			if (player_standing_on_id == id)
+	//			{
+	//				if (player.m_moving)
+	//				{
+	//					TextureBank::Get("char_ss")->Render(player_screen_x, player_screen_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH * player.player_anim.GetCurrentFrame(), sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
+	//				}
+	//				else
+	//				{
+	//					TextureBank::Get("char_ss")->Render(player_screen_x, player_screen_y, SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, sprite_coords.y * HERO_SPRITE_HEIGHT, HERO_SPRITE_WIDTH, HERO_SPRITE_HEIGHT);
+	//				}
+
+	//				if (m_render_player_collision)
+	//				{
+	//					//const SDL_Rect col_rect{ player.m_x + player.Col_X, player.m_y + player.Col_Y, player.Col_Width, player.Col_Height };
+	//					const SDL_Rect col_rect{ player_screen_x + player.Col_X, player_screen_y + player.Col_Y, player.Col_Width, player.Col_Height };
+	//					SDL_SetRenderDrawColor(Renderer, 255, 255, 0, SDL_ALPHA_OPAQUE);
+	//					SDL_RenderDrawRect(Renderer, &col_rect);
+	//					SDL_SetRenderDrawColor(Renderer, 0, 0, 255, SDL_ALPHA_OPAQUE);
+	//					const SDL_Rect bound_rect{ player_screen_x, player_screen_y , SCALED_HERO_SPRITE_WIDTH, SCALED_HERO_SPRITE_HEIGHT };
+	//					SDL_RenderDrawRect(Renderer, &bound_rect);
+	//				}
+	//			}
+	//		}
+	//	}
+	//}
+
+	if (m_state == STATE_ENUM::DIALOGUE)
+	{
+		m_dial_gui.OnRender();
+	}
+
+	for (auto&& window_gui : m_window_guis)
+	{
+		window_gui->Render();
+	}
+
+
+
+#if FPS_DEBUG_RENDER
+	DebugRender();
+#endif
+	SDL_RenderPresent(Renderer);
+}
+
+
+void App::DebugRender()
+{
+	int fps = CFPS::FPSControl.GetFPS();
+
+	DebugRenderer::get().AddDebugLine("FPS", "FPS: " + Stringify::Int(fps), Renderer);
+	DebugRenderer::get().AddDebugLine("PlayerX", "Player X: " + Stringify::Int(player.m_x), Renderer);
+	DebugRenderer::get().AddDebugLine("PlayerY", "Player Y: " + Stringify::Int(player.m_y), Renderer);
+
+	DebugRenderer::get().AddDebugLine("area_cam.m_x", "area_cam.m_x: " + Stringify::Int(area_cam.GetX()), Renderer);
+	DebugRenderer::get().AddDebugLine("area_cam.m_y", "area_cam.m_y: " + Stringify::Int(area_cam.GetY()), Renderer);
+	DebugRenderer::get().AddDebugLine("CollCount", "Coll count: " + Stringify::Int(m_current_location->m_collisions_vector.size()), Renderer);
+	DebugRenderer::get().AddDebugLine("InteractivesSize", "Interactive SizE: " + Stringify::Int(w_obj.GetInteractableVector(m_current_location).size()), Renderer);
+	DebugRenderer::get().AddDebugLine("m_currently_drawn_tile_ids", "m_currently_drawn_tile_ids SizE: " + Stringify::Int(m_currently_drawn_tile_ids.size()), Renderer);
+
+
+	for (auto&& npc : w_obj.GetNpcLocationVector(m_current_location))
+	{
+		DebugRenderer::get().AddDebugLine(npc->GetNpcName(), npc->GetNpcName() + ": X: " + Stringify::Int(npc->m_x) + " Y: " + Stringify::Int(npc->m_y) + " Tile ID: " + Stringify::Int(npc->GetCorrespondingTileIds()), Renderer);
+	}
+
+
+	DebugRenderer::get().OnRender(Renderer);
+}
+
+void App::UpdateCurrentlyDrawnTilesId()
+{
+	int top_left_id = area_cam.GetTopLeftID();
+	int top_right_id = area_cam.GetTopRightID();
+	int bottom_right_id = area_cam.GetBottomRightID();
+	int bottom_left_id = area_cam.GetBottomLeftID();
+
+	//int tile_offset_x = left % SCALED_SPRITE_WIDTH;
+	//int tile_offset_y = top % SCALED_SPRITE_HEIGHT;
+
+	int cols_count = top_right_id - top_left_id;
+	if (m_current_location)
+	{
+		//int rows_count = ceil((bottom_right_id - top_left_id) / m_current_location->m_tiles_per_col);
+		int rows_count = (bottom_right_id - top_left_id + m_current_location->m_tiles_per_col - 1) / m_current_location->m_tiles_per_col;
+
+
+		std::set<int> tile_ids_to_be_drawn;
+		std::set<int> overlaping_ids;
+
+
+		for (int row_id = 0; row_id < rows_count; ++row_id)
+		{
+			for (int col_id = 0; col_id < cols_count; ++col_id)
+			{
+				int id = top_left_id + col_id;
+				id = id + row_id * m_current_location->m_tiles_per_col;
+				tile_ids_to_be_drawn.insert(id);
+			}
+		}
+
+		for (int i = 0; i < m_current_location->m_tiles_layers.size(); ++i)
+		{
+			overlaping_ids = LookupTables::Get().GetAllOverlapingIdsByLayerAndRange(i, tile_ids_to_be_drawn);
+
+			tile_ids_to_be_drawn.insert(overlaping_ids.begin(), overlaping_ids.end());
+		}
+
+		m_currently_drawn_tile_ids = tile_ids_to_be_drawn;
+	}
+}
+
+void App::UpdateVisibleCornersCoordinates()
+{
 }
 
 //------------------------------------------------------------------------------
@@ -681,7 +968,9 @@ int App::Execute(int argc, char* argv[])
 		//}
 
 		Loop();		// Update 60 times per second ?
-		Render();
+		
+		//Render();
+		OrderedRender();
 
 		//SDL_Delay(1); // Breath
 		CFPS::FPSControl.OnLoop();
@@ -702,6 +991,21 @@ int App::Execute(int argc, char* argv[])
 	Cleanup();
 
 	return 1;
+}
+
+bool App::IsConfirmButtonPressed(SDL_Event* Event) const
+{
+	return Event->key.keysym.sym == SDLK_RETURN || Event->key.keysym.sym == SDLK_KP_ENTER;
+}
+
+bool App::IsUpButtonPressed(SDL_Event* Event) const
+{
+	return Event->key.keysym.sym == SDLK_UP || Event->key.keysym.sym == SDLK_w;
+}
+
+bool App::IsDownButtonPressed(SDL_Event* Event) const
+{
+	return Event->key.keysym.sym == SDLK_DOWN || Event->key.keysym.sym == SDLK_s;
 }
 
 void App::SetLocation(std::shared_ptr<Location> current_location)
@@ -746,6 +1050,8 @@ bool App::Init()
 
 
 	FontInit();
+	
+	//m_window_guis.back()->LoadText("gowno", { X_OFFSET_TO_FRAME_BORDER, HEIGHT_OF_SINGLE_LINE });
 
 #if DEBUG_MODE
 	int x0 = SET_PLAYER_X0();
@@ -790,7 +1096,7 @@ bool App::Init()
 	if (!LoadLocationsResources())
 	{
 		// FATAL
-		std::cout << "Failed to load locations resources\n";
+		ERROR("Failed to load locations resources");
 		return false;
 	}
 
@@ -802,7 +1108,7 @@ bool App::Init()
 
 	m_current_location->LoadWaypointsLua(STARTING_LOCATION_PATH);
 
-	area_cam.SetLimits(m_current_location->GetLocationWidth(), m_current_location->GetLocationHeight());
+	area_cam.SetLimits(m_current_location->GetLocationWidth(), m_current_location->GetLocationHeight(), m_current_location->m_tiles_per_col);
 	area_cam.SetCameraBasedOnPlayerPos(player.m_x, player.m_y);
 
 	//for (auto&& npc : w_obj.GetNpcArr())
@@ -812,7 +1118,7 @@ bool App::Init()
 	//NPC* los = new NPC{ 400, 400, 0, 1, 4 };
 	//EntityWalker::m_entity_arr.emplace_back(los);
 	
-	TextureBank::Get("dialogue_frame")->setAlpha(101);
+	TextureBank::Get("dialogue_frame")->setAlpha(191);
 	TextureBank::Get("dialogue_frame")->setBlendMode(SDL_BLENDMODE_BLEND);
 
 
@@ -925,7 +1231,7 @@ void App::MoveToAnotherLocationSequence()
 			player.SetPosition(loc_x, loc_y);
 			SetLocation(entered_loc);
 
-			area_cam.SetLimits(m_current_location->GetLocationWidth(), m_current_location->GetLocationHeight());
+			area_cam.SetLimits(m_current_location->GetLocationWidth(), m_current_location->GetLocationHeight(), m_current_location->m_tiles_per_col);
 			area_cam.SetCameraBasedOnPlayerPos(player.m_x, player.m_y);
 
 			entering_location = true;
@@ -945,6 +1251,12 @@ void App::MoveToAnotherLocationSequence()
 bool App::LoadLocationsResources()
 {
 	return w_obj.LoadResources();
+}
+
+void App::UpdateVisibleTexturesAlpha()
+{
+	TextureBank::Get("char_ss")->setColor(fade_out_value, fade_out_value, fade_out_value);
+	TextureBank::Get("ss_nomargin")->setColor(fade_out_value, fade_out_value, fade_out_value);
 }
 
 bool App::LoadAllEntrancePoints()

@@ -130,7 +130,7 @@ bool DialogController::IsChoiceState() const
 	return m_state == DialogControllerState::DIALOG_CHOICES;
 }
 
-bool DialogController::LoadDialog(const std::string& lua_dialog_path, std::shared_ptr<NPC>& npc_dialoguer)
+bool DialogController::LoadDialog(const std::string& lua_dialog_path, NPC* npc_dialoguer)
 {
 	m_dialogue_owner = npc_dialoguer;
 //	std::string lua_script_path("res/scripts/dialogues/DIA_NPC_" + Stringify::Int(m_interactable_id) + ".lua");

@@ -29,7 +29,7 @@ private:
 	int m_x0 = 50;
 	int m_y0 = 50;
 	int m_y_offset_inc = 20;
-	std::vector<std::string> m_debug_lines;
+	//std::vector<std::string> m_debug_lines;
 	
 	//std::vector<std::unique_ptr<Texture>> m_debug_lines_textures;
 	std::unordered_map<std::string, std::pair<int, std::unique_ptr<Texture>>> m_debug_lines_textures;

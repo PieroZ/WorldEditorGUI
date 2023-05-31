@@ -1,11 +1,12 @@
 #include "EntityWalker.h"
 #include "TextureBank.h"
 #include "App.h"
+#include "LocationHelper.h"
 
 std::vector<EntityWalker*>     EntityWalker::m_entity_arr;
 
 //EntityWalker::EntityWalker(App& world, std::shared_ptr<Location> occupied_location, int x, int y, int id, uint8_t sprite_x, uint8_t sprite_y) : m_world(world), m_occupied_location(occupied_location), m_id(id), m_sprite_x(sprite_x), m_sprite_y(sprite_y)
-EntityWalker::EntityWalker(std::shared_ptr<Location> occupied_location, int x, int y, int id, uint8_t sprite_x, uint8_t sprite_y) : IInteractable(occupied_location), m_id(id)//, m_sprite_x(sprite_x), m_sprite_y(sprite_y)
+EntityWalker::EntityWalker(std::shared_ptr<Location> occupied_location, int x, int y, int id, uint8_t sprite_x, uint8_t sprite_y) : IInteractive(occupied_location), m_id(id)//, m_sprite_x(sprite_x), m_sprite_y(sprite_y)
 {
 	m_x = x;
 	m_y = y;
@@ -66,6 +67,8 @@ bool EntityWalker::Collides(int oX, int oY, int oW, int oH)
 	return true;
 }
 
+
+// Most likely unused
 bool EntityWalker::IsPosValid(int NewX, int NewY)
 {
 	bool result = true;
@@ -79,7 +82,9 @@ bool EntityWalker::IsPosValid(int NewX, int NewY)
 	for (int iY = StartY; iY <= EndY; iY++) {
 		for (int iX = StartX; iX <= EndX; iX++) {
 			//CTile* Tile = Location::starting_loc.GetTile(iX * SCALED_SPRITE_WIDTH, iY * SCALED_SPRITE_HEIGHT);
-			CTile* Tile = m_occupied_location->GetTile(iX * SCALED_SPRITE_WIDTH, iY * SCALED_SPRITE_HEIGHT);
+			//CTile* Tile = m_occupied_location->GetTile(iX * SCALED_SPRITE_WIDTH, iY * SCALED_SPRITE_HEIGHT);
+
+			CTile* Tile = nullptr;
 
 			if (PosValidTile(Tile) == false) 
 			{
@@ -159,6 +164,41 @@ void EntityWalker::DrawBoundingRect(SDL_Renderer* renderer)
 {
 }
 
-void EntityWalker::Interact()
+void EntityWalker::Interact(App* app)
 {
+}
+
+int EntityWalker::GetCorrespondingTileIds() const
+{
+	int x = 0;
+	int y = 0;
+	if (Col_Width == 0 || Col_Height == 0)
+	{
+		x = m_x + SCALED_HERO_SPRITE_WIDTH / 2;
+		y = m_y + SCALED_HERO_SPRITE_HEIGHT / 2;
+	}
+	else
+	{
+		x = m_x + Col_X + (Col_Width - 1)/2;
+		y = m_y + Col_Y + (Col_Height - 1)/2;
+	}
+
+	return LocationHelper::get().GetIdBasedOnXY(x, y, m_occupied_location->m_tiles_per_col);
+}
+
+int EntityWalker::GetBottomRightSpriteTileId() const
+{
+	int x = m_x + SCALED_HERO_SPRITE_WIDTH;
+	int y = m_y + SCALED_HERO_SPRITE_HEIGHT;
+
+	return LocationHelper::get().GetIdBasedOnXY(x, y, m_occupied_location->m_tiles_per_col);
+}
+
+
+int EntityWalker::GetTopLeftSpriteTileId() const
+{
+	int x = m_x;
+	int y = m_y;
+
+	return LocationHelper::get().GetIdBasedOnXY(x, y, m_occupied_location->m_tiles_per_col);
 }

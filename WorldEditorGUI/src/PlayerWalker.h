@@ -42,7 +42,7 @@ public:
 	bool m_moving = false;
 
 	// Inherited via EntityWalker
-	virtual void Interact() override;
+	virtual void Interact(App* app) override;
 private:
 	//Location& m_current_location;
 	//int m_x, m_y;

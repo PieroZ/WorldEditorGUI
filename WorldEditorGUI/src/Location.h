@@ -44,10 +44,18 @@ public:
 private:
 	std::vector<ExitWaypoint> m_exit_waypoints;
 	std::vector< LocationElements> m_location_elements;
+	
+	// Currently only one spritesheet per location is supported
+	std::string spritesheet_name;
 
 	// debug only vars
 	bool m_render_collision_boxes;
+	bool m_render_tiles_grid;
 
+	// map used to determine id sprite offset according to lua extracted tiles values
+	std::unordered_map<int, int> id_to_offset;
+	// map used to link sprites lua id to spritesheet name
+	std::unordered_map<int, std::string> lua_id_to_spritesheet_name;
 
 public:
 	Location();
@@ -56,6 +64,15 @@ public:
 public:
 	bool OnLoad(char* File);
 	void OnRender(SDL_Renderer* renderer, int cam_x, int cam_y, Uint8 r = 255, Uint8 g = 255, Uint8 b = 255);
+	void OnRenderBaseLayer(SDL_Renderer* renderer, int cam_x, int cam_y, Uint8 r = 255, Uint8 g = 255, Uint8 b = 255);
+
+	void RenderTile(SDL_Renderer* renderer, int tile_id, const SDL_Point& top_left);
+
+
+	void PrepareLocationSpecificData(const int spritesheet_tiles_count, const int first_spritesheet_gid, const std::string& spritesheet_name);
+	int GetFirstGIDBasedOnSpritesID(const int sprites_id) const;
+	const std::string GetSpritesheetNameBasedOnSpritesId(const int sprites_id) const;
+
 	bool OnLoadLua(const std::string& File, int tiles_layer_id);
 	bool LoadWaypointsLua(const std::string& File);
 	//bool HasPlayerEnteredWaypoint(int x, int y);
@@ -63,12 +80,8 @@ public:
 	void AddExitWaypoint(const ExitWaypoint& exit_waypoint);
 	std::string GetLocationName() const;
 	
-
-	void SetLocationLayersPtrs();
 	int GetLayersCount() const;
 
-	CTile* GetTile(int x, int y);
-	CTile* GetTile(int x, int y, int TILES_COL_NO);
 	std::shared_ptr<CTile> GetTileByLayer(int x, int y, int TILES_COL_NO, int layer_id);
 	int GetLocationWidth() const;
 	int GetLocationHeight() const;
@@ -84,13 +97,16 @@ public:
 
 	void IdToXY(int id, int& x, int& y);
 	int GetTileDirId(int x, int y, int dir);
+
+	std::array<int, 4> GetTilesIdBasedOnPlayerDir(int x, int y, int dir);
+
 	float GetTileId(float x, float y);
 	std::vector<int> GetTileDirIds(int x, int y, int width, int height, int dir);
 	unsigned int IsPlayerAtEdgePosition(int p_x, int p_y);
 
 private:
 	void MapIdToCoords(const int cols, const int id);
-	void MapIdToCoords(const int cols, const int id, std::vector<int>& block_ids);
+	void MapIdToCoords(const int cols, const int id, const int layer_id, std::vector<int>& block_ids);
 	SDL_Point IdToXY(const int cols, const int id);
 	
 	void ExtractColNoLua(sol::state& lua, int& col_no);

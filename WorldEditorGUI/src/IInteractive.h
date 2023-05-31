@@ -1,20 +1,31 @@
 #pragma once
 #include <stdint.h>
-#include "Camera.h"
 #include <memory>
+#include <vector>
+#include "Camera.h"
 #include "Location.h"
 
-class IInteractable
+
+class App;
+
+class IInteractive
 {
 public:
-	IInteractable();
-	IInteractable(std::shared_ptr< Location> occupied_location);
-	virtual void Interact() = 0;
+	IInteractive();
+	IInteractive(std::shared_ptr< Location> occupied_location);
+	
+	// MVP 
+	virtual void Interact(App* app) = 0;
+
+	// Returns the corresponding id of tile in map coordinates
+	virtual int GetCorrespondingTileIds() const = 0;
+
 	virtual bool IsAtTile(int x, int y);
 	bool IsWithinRange(int x, int y, int w, int h);
 	uint32_t GetInteractableId() const;
 	virtual void SetLocation(std::shared_ptr<Location> occupied_loc);
 	std::shared_ptr<Location> GetOccupiedLocation();
+	void GetXY(int& x, int& y);
 
 public:
 	int m_x, m_y;

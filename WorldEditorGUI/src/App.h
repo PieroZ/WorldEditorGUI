@@ -13,24 +13,32 @@
 #include "TextureBank.h"
 #include "DialogGUI.h"
 #include "DialogController.h"
+#include "WindowGUI.h"
+#include "WindowGUIController.h"
 
 #include <vector>
+#include <set>
 
 class App : public CEvent
 {
-private:
+public:
 	static App Instance;
 
 	enum class STATE_ENUM
 	{
 		NORMAL,
-		DIALOGUE
+		DIALOGUE,
+		SAVE_CHOICE
 	} m_state = STATE_ENUM::NORMAL;
 
 	bool Running = true;
 
 	DialogGUI m_dial_gui;
 	DialogController m_dial_controller;
+	
+	std::vector < std::shared_ptr<WindowGUI>> m_window_guis;
+	std::shared_ptr< WindowGUIController > m_window_controller;
+
 
 	SDL_Window* Window = NULL;
 	SDL_Renderer* Renderer = NULL;
@@ -52,6 +60,9 @@ private:
 	WorldObjects w_obj;
 	Camera area_cam;
 	std::shared_ptr<Location> m_current_location;
+	
+	std::set<int> m_currently_drawn_tile_ids;
+
 
 	sol::state lua;
 
@@ -76,6 +87,9 @@ private:
 	int loc_x = 0;
 	int loc_y = 0;
 
+public:
+	void UpdateCurrentlyDrawnTilesId();
+
 private:
 	App();
 
@@ -87,6 +101,7 @@ private:
 	bool PrimarySDLInit();
 
 	void MoveToAnotherLocationSequence();
+	void UpdateVisibleTexturesAlpha();
 
 	bool LoadLocationsResources();
 
@@ -96,10 +111,16 @@ private:
 
 	// Logic loop
 	void Loop();
-	void StopPlayerMovement();
 
 	// Render loop (draw)
 	void Render();
+	
+	void OrderedRender();
+	void DebugRender();
+
+	void UpdateVisibleCornersCoordinates();
+
+	//void UpdateToBeDrawnTilesSet(std::set<int> tile_ids_to_be_drawn);
 
 	// Free up resources
 	void Cleanup();
@@ -113,10 +134,15 @@ private:
 
 public:
 
+	void StopPlayerMovement();
 	void OnMove(int x_speed, int y_speed);
 	void OnKeyDown(SDL_Event* Event);
 
 	void OnKeyUp(SDL_Event* Event);
+
+	bool IsConfirmButtonPressed(SDL_Event* Event) const;
+	bool IsUpButtonPressed(SDL_Event* Event) const;
+	bool IsDownButtonPressed(SDL_Event* Event) const;
 
 	int Execute(int argc, char* argv[]);
 

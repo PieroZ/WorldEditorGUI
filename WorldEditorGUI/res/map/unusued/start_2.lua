@@ -8,20 +8,20 @@ abc = {
   height = 12,
   tilewidth = 16,
   tileheight = 16,
-  nextlayerid = 3,
+  nextlayerid = 4,
   nextobjectid = 1,
   properties = {},
   tilesets = {
     {
       name = "rpg",
       firstgid = 1,
-      filename = "rpg.tsx",
+      filename = "../../../../../../Users/piotr/Desktop/Maps/rpg.tsx",
       tilewidth = 16,
       tileheight = 16,
       spacing = 1,
       margin = 0,
       columns = 57,
-      image = "../../../../dev/VisualStudioProjects/WorldEditorGUI/WorldEditorGUI/res/textures/roguelikeSheet_transparent.png",
+      image = "../textures/roguelikeSheet_transparent.png",
       imagewidth = 968,
       imageheight = 526,
       tileoffset = {
@@ -43,6 +43,10 @@ abc = {
         },
         {
           id = 700,
+          type = "BLOCK"
+        },
+        {
+          id = 756,
           type = "BLOCK"
         },
         {

@@ -7,6 +7,13 @@
 #include <sstream>
 #include <filesystem>
 #include "Config.h"
+#include "DebugRenderer.h"
+#include "IdToSpritesheet.h"
+
+// only to get renderer for debug purposes!
+#include "App.h"
+#include "Log.h"
+
 
 Location Location::starting_loc;
 //Location Location::starting_loc_elements;
@@ -14,6 +21,8 @@ Location Location::starting_loc;
 const char LUA_PROPERTIES[] = "properties";
 
 static const auto RENDER_TILES_COLLISION_BOXES = ParamsRegister::R_bool("B_RenderTilesCollisionBoxes", false);
+static const auto RENDER_TILES_GRID = ParamsRegister::R_bool("B_RenderTilesGrid", false);
+
 
 
 // TODO: Move to utils
@@ -51,6 +60,7 @@ Location::Location()
 Location::Location(const std::string location_name) //: m_location_name(location_name)
 {
 	m_render_collision_boxes = RENDER_TILES_COLLISION_BOXES();
+	m_render_tiles_grid = RENDER_TILES_GRID();
 
 	m_location_name = location_name;
 	m_bottom_limit = 0;
@@ -110,14 +120,14 @@ void Location::OnRender(SDL_Renderer* renderer, int cam_x, int cam_y, Uint8 r/* 
 	/*int tile_offset_x = (cam_x % SCALED_SPRITE_WIDTH);
 	int tile_offset_y = (cam_y % SCALED_SPRITE_HEIGHT);*/
 
-	int tile_offset_x = top_left.x % SCALED_HERO_SPRITE_WIDTH;
-	int tile_offset_y = top_left.y % SCALED_HERO_SPRITE_HEIGHT;
+	int tile_offset_x = left % SCALED_SPRITE_WIDTH;
+	int tile_offset_y = top % SCALED_SPRITE_HEIGHT;
 		
 	//int first_tile_id = top_left.x / SCALED_SPRITE_WIDTH;
 	//first_tile_id = first_tile_id + floor(float(top_left.y) / float(SCALED_HERO_SPRITE_HEIGHT)) * T_TILES_COLS;
 
-	/*int LocationWidth = T_TILES_COLS * SPRITE_WIDTH;
-	int LocationHeight = T_TILES_COLS * SPRITE_WIDTH;*/
+	/*int LocationWidth = T_TILES_COLS * BASE_SPRITE_WIDTH;
+	int LocationHeight = T_TILES_COLS * BASE_SPRITE_WIDTH;*/
 
 	//SDL_Point l_go = IdToXY(T_TILES_COLS, top_left_id);
 
@@ -133,50 +143,95 @@ void Location::OnRender(SDL_Renderer* renderer, int cam_x, int cam_y, Uint8 r/* 
 
 	int draw_count = 0;
 
-	for (int row_id = 0; row_id < rows_count; ++row_id)
-	{
-		for (int col_id = 0; col_id < cols_count; ++col_id)
-		{
-			int id = top_left_id + col_id;
-			id = id + row_id * m_tiles_per_col;
+	//for (int row_id = 0; row_id < rows_count; ++row_id)
+	//{
+	//	for (int col_id = 0; col_id < cols_count; ++col_id)
+	//	{
+	//		int id = top_left_id + col_id;
+	//		id = id + row_id * m_tiles_per_col;
 
-			SDL_Point tile_cords = IdToXY(m_tiles_per_col, id);
+	//		SDL_Point tile_cords = IdToXY(m_tiles_per_col, id);
 
-			//TextureBank::Get("ss_nomargin")->Render(tile_cords.x - cam_x, tile_cords.y - cam_y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, tile_cords.x, tile_cords.y, SPRITE_WIDTH, SPRITE_HEIGHT);
-			if (id >= 0 && id < m_tiles_arr.size())
-			{
-				if (m_tiles_arr[id].TypeID != TILE_TYPE_NONE)
-				{
-					if (r != 255 || g != 255 || b != 255)
-					{
-						TextureBank::Get("ss_nomargin")->setColor(r, g, b);
-					}
-					TextureBank::Get("ss_nomargin")->Render(tile_cords.x - top_left.x, tile_cords.y - top_left.y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, m_tiles_arr[id].m_tile_spritesheet_y * SPRITE_WIDTH, m_tiles_arr[id].m_tile_spritesheet_x * SPRITE_HEIGHT, SPRITE_WIDTH, SPRITE_HEIGHT);
-				}
+	//		//TextureBank::Get("ss_nomargin")->Render(tile_cords.x - cam_x, tile_cords.y - cam_y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, tile_cords.x, tile_cords.y, BASE_SPRITE_WIDTH, BASE_SPRITE_HEIGHT);
+	//		if (id >= 0 && id < m_tiles_arr.size())
+	//		{
+	//			if (m_tiles_arr[id].TypeID != TILE_TYPE_NONE)
+	//			{
+	//				if (r != 255 || g != 255 || b != 255)
+	//				{
+	//					TextureBank::Get("ss_nomargin")->setColor(r, g, b);
+	//				}
+	//				TextureBank::Get("ss_nomargin")->Render(tile_cords.x - top_left.x, tile_cords.y - top_left.y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, m_tiles_arr[id].m_tile_spritesheet_y * BASE_SPRITE_WIDTH, m_tiles_arr[id].m_tile_spritesheet_x * BASE_SPRITE_HEIGHT, BASE_SPRITE_WIDTH, BASE_SPRITE_HEIGHT);
+	//			}
 
-				if (m_render_collision_boxes)
-				{
-					if (m_tiles_arr[id].TypeID == TILE_TYPE_BLOCK)
-						{
-							SDL_SetRenderDrawColor(renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);						
-						}
-						SDL_RenderDrawRect(renderer, &m_tiles_arr[id].m_collider);
-						SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
-				}
-				//++draw_count;
+	//			if (m_render_collision_boxes)
+	//			{
+	//				if (m_tiles_arr[id].TypeID == TILE_TYPE_BLOCK)
+	//					{
+	//						SDL_SetRenderDrawColor(renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);						
+	//					}
+	//					SDL_RenderDrawRect(renderer, &m_tiles_arr[id].m_collider);
+	//					SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
+	//			}
+	//			//++draw_count;
 
-						//const SDL_Rect col_rect{ tile_cords.x - top_left.x, tile_cords.y - top_left.y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT };
-						//if (m_tiles_arr[id].TypeID == 2)
-						//{
-						//	SDL_SetRenderDrawColor(renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);						
-						//}
-						//SDL_RenderDrawRect(renderer, &col_rect);
-						//SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
-			}
-		}
-	}
+	//					//const SDL_Rect col_rect{ tile_cords.x - top_left.x, tile_cords.y - top_left.y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT };
+	//					//if (m_tiles_arr[id].TypeID == 2)
+	//					//{
+	//					//	SDL_SetRenderDrawColor(renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);						
+	//					//}
+	//					//SDL_RenderDrawRect(renderer, &col_rect);
+	//					//SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
+	//		}
+	//	}
+	//}
 
-	for (auto&& loc_element_layer : m_location_elements)
+	//for (auto&& loc_element_layer : m_location_elements)
+	//{
+	//	for (int row_id = 0; row_id < rows_count; ++row_id)
+	//	{
+	//		for (int col_id = 0; col_id < cols_count; ++col_id)
+	//		{
+	//			int id = top_left_id + col_id;
+	//			id = id + row_id * m_tiles_per_col;
+
+	//			SDL_Point tile_cords = IdToXY(m_tiles_per_col, id);
+
+	//			//TextureBank::Get("ss_nomargin")->Render(tile_cords.x - cam_x, tile_cords.y - cam_y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, tile_cords.x, tile_cords.y, BASE_SPRITE_WIDTH, BASE_SPRITE_HEIGHT);
+	//			if (id >= 0 && id < loc_element_layer.m_tiles_arr.size())
+	//			{
+	//				if (loc_element_layer.m_tiles_arr[id].TypeID != TILE_TYPE_NONE)
+	//				{
+	//					TextureBank::Get("ss_nomargin")->Render(tile_cords.x - top_left.x, tile_cords.y - top_left.y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, loc_element_layer.m_tiles_arr[id].m_tile_spritesheet_y * BASE_SPRITE_WIDTH, loc_element_layer.m_tiles_arr[id].m_tile_spritesheet_x * BASE_SPRITE_HEIGHT, BASE_SPRITE_WIDTH, BASE_SPRITE_HEIGHT);
+	//				}
+
+
+	//				if (m_render_collision_boxes)
+	//				{
+	//					if (loc_element_layer.m_tiles_arr[id].TypeID == TILE_TYPE_BLOCK)
+	//					{
+	//						SDL_SetRenderDrawColor(renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
+	//					}
+	//					int x_tile = loc_element_layer.m_tiles_arr[id].m_collider.x + tile_cords.x;
+	//					int w_tile = loc_element_layer.m_tiles_arr[id].m_collider.w;
+	//					int y_tile = loc_element_layer.m_tiles_arr[id].m_collider.y + tile_cords.y;
+	//					int h_tile = loc_element_layer.m_tiles_arr[id].m_collider.h;
+
+	//					SDL_Rect collision_box{ x_tile - top_left.x, y_tile - top_left.y, w_tile, h_tile };
+
+	//					if (w_tile > 0 && h_tile > 0)
+	//					{
+	//						SDL_RenderDrawRect(renderer, &collision_box);
+	//					}
+	//					SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
+	//				}
+	//				//++draw_count;
+	//			}
+	//		}
+	//	}
+	//}
+
+	for (auto&& loc_element_layer : m_tiles_layers)
 	{
 		for (int row_id = 0; row_id < rows_count; ++row_id)
 		{
@@ -187,25 +242,26 @@ void Location::OnRender(SDL_Renderer* renderer, int cam_x, int cam_y, Uint8 r/* 
 
 				SDL_Point tile_cords = IdToXY(m_tiles_per_col, id);
 
-				//TextureBank::Get("ss_nomargin")->Render(tile_cords.x - cam_x, tile_cords.y - cam_y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, tile_cords.x, tile_cords.y, SPRITE_WIDTH, SPRITE_HEIGHT);
-				if (id >= 0 && id < loc_element_layer.m_tiles_arr.size())
+				//TextureBank::Get("ss_nomargin")->Render(tile_cords.x - cam_x, tile_cords.y - cam_y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, tile_cords.x, tile_cords.y, BASE_SPRITE_WIDTH, BASE_SPRITE_HEIGHT);
+				if (id >= 0 && id < loc_element_layer.size())
 				{
-					if (loc_element_layer.m_tiles_arr[id].TypeID != TILE_TYPE_NONE)
+					if (loc_element_layer[id]->TypeID != TILE_TYPE_NONE)
 					{
-						TextureBank::Get("ss_nomargin")->Render(tile_cords.x - top_left.x, tile_cords.y - top_left.y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, loc_element_layer.m_tiles_arr[id].m_tile_spritesheet_y * SPRITE_WIDTH, loc_element_layer.m_tiles_arr[id].m_tile_spritesheet_x * SPRITE_HEIGHT, SPRITE_WIDTH, SPRITE_HEIGHT);
+						TextureBank::Get("ss_nomargin")->Render(tile_cords.x - top_left.x, tile_cords.y - top_left.y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT,
+							loc_element_layer[id]->m_tile_spritesheet_y * BASE_SPRITE_WIDTH, loc_element_layer[id]->m_tile_spritesheet_x * BASE_SPRITE_HEIGHT, BASE_SPRITE_WIDTH, BASE_SPRITE_HEIGHT);
 					}
 
 
 					if (m_render_collision_boxes)
 					{
-						if (loc_element_layer.m_tiles_arr[id].TypeID == TILE_TYPE_BLOCK)
+						if (loc_element_layer[id]->TypeID == TILE_TYPE_BLOCK)
 						{
 							SDL_SetRenderDrawColor(renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
 						}
-						int x_tile = loc_element_layer.m_tiles_arr[id].m_collider.x + tile_cords.x;
-						int w_tile = loc_element_layer.m_tiles_arr[id].m_collider.w;
-						int y_tile = loc_element_layer.m_tiles_arr[id].m_collider.y + tile_cords.y;
-						int h_tile = loc_element_layer.m_tiles_arr[id].m_collider.h;
+						int x_tile = loc_element_layer[id]->m_collider.x + tile_cords.x;
+						int w_tile = loc_element_layer[id]->m_collider.w;
+						int y_tile = loc_element_layer[id]->m_collider.y + tile_cords.y;
+						int h_tile = loc_element_layer[id]->m_collider.h;
 
 						SDL_Rect collision_box{ x_tile - top_left.x, y_tile - top_left.y, w_tile, h_tile };
 
@@ -214,70 +270,224 @@ void Location::OnRender(SDL_Renderer* renderer, int cam_x, int cam_y, Uint8 r/* 
 							SDL_RenderDrawRect(renderer, &collision_box);
 						}
 						SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
+
+						//SDL_RenderDrawLine(renderer, col_id * SCALED_SPRITE_WIDTH + tile_offset_x, 0, col_id * SCALED_SPRITE_WIDTH + tile_offset_x, SCREEN_HEIGHT);
+						//SDL_RenderDrawLine(renderer, 0, row_id * SCALED_SPRITE_HEIGHT + tile_offset_y, SCREEN_WIDTH, row_id * SCALED_SPRITE_HEIGHT + tile_offset_y);
+
+						if (m_render_tiles_grid)
+						{
+							SDL_RenderDrawLine(renderer, tile_cords.x - top_left.x, tile_cords.y - top_left.y, tile_cords.x - top_left.x + SCALED_SPRITE_WIDTH, tile_cords.y - top_left.y);
+							SDL_RenderDrawLine(renderer, tile_cords.x - top_left.x, tile_cords.y - top_left.y, tile_cords.x - top_left.x, tile_cords.y - top_left.y + SCALED_HERO_SPRITE_HEIGHT);
+						}
+
 					}
 					//++draw_count;
-
-							//const SDL_Rect col_rect{ tile_cords.x - top_left.x, tile_cords.y - top_left.y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT };
-							//if (m_tiles_arr[id].TypeID == 2)
-							//{
-							//	SDL_SetRenderDrawColor(renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);						
-							//}
-							//SDL_RenderDrawRect(renderer, &col_rect);
-							//SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
 				}
 			}
 		}
 	}
 
-	//std::cout << "Draw count = " << draw_count << std::endl;
 
-	//for (int id_y = top_left_id / T_TILES_COLS; id_y < rows_count; ++id_y)
-	//for (int id_y = 0; id_y < rows_count; ++id_y)
-	//{
-	//	//for (int id = top_left_id; id < top_right_id; ++id)
-	//	for (int id = 0; id < cols_count; ++id)
-	//	{
-	//		//if (top_left_id + id < 0)
-	//		//{
-	//		//	continue;
-	//		//}
-	//		if ((top_left_id + id + id_y * T_TILES_COLS < m_tiles_arr.size()) && top_left_id + id + id_y * T_TILES_COLS >= 0)
-	//		{
-	//			//id = 0;
-	//			//idx = 0;
-	//			//idy = 0;
-	//	//		for (auto&& p : Location::starting_loc_elements.m_tiles_arr)
-	//		//	{
-	//			if (m_tiles_arr[id].TypeID != TILE_TYPE_NONE)
-	//			{
-	//				//TextureBank::Get("ss_nomargin")->Render(id * SCALED_SPRITE_WIDTH - tile_offset_x, id_y * SCALED_SPRITE_HEIGHT - tile_offset_y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, m_tiles_arr[id + id_y * T_TILES_COLS].m_tile_y * SPRITE_WIDTH, m_tiles_arr[id + id_y * T_TILES_COLS].m_tile_x * SPRITE_HEIGHT, SPRITE_WIDTH, SPRITE_HEIGHT);
-	//				int sprite_x = top_left_id + id + id_y * T_TILES_COLS;
-	//				
-
-	//				TextureBank::Get("ss_nomargin")->Render(id * SCALED_SPRITE_WIDTH - tile_offset_x, id_y * SCALED_SPRITE_HEIGHT - tile_offset_y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, m_tiles_arr[top_left_id + id + id_y * T_TILES_COLS].m_tile_y * SPRITE_WIDTH, m_tiles_arr[sprite_x].m_tile_x * SPRITE_HEIGHT, SPRITE_WIDTH, SPRITE_HEIGHT);
-	//				++draw_count;
-	//			}
-	//			//id++;
-	//			//idx = id % TILES_COLS;
-	//			//idy = id / TILES_COLS;
-	//	//	}
-	//		}
-	//		else
-	//		{
-	//			TextureBank::Get("ss_nomargin")->Render(id * SCALED_SPRITE_WIDTH - tile_offset_x, id_y * SCALED_SPRITE_HEIGHT - tile_offset_y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT,0, 0, SPRITE_WIDTH, SPRITE_HEIGHT);
-	//		}
-	//	}
-	//}
-
-	//std::cout << "Draw Count = " << draw_count<<std::endl;
-
-	//TILES_COLS max liczba PELNYCH kafelkow w poziomie wyswietlana na ekranie (efektywnie moze byc 1 wiecej)
-
-	//m_tiles_arr
 }
 
 
+// We draw only the base surface ( first layer )
+void Location::OnRenderBaseLayer(SDL_Renderer* renderer, int cam_x, int cam_y, Uint8 r, Uint8 g, Uint8 b)
+{
 
+	int left = cam_x - (SCREEN_WIDTH / 2);
+	int right = cam_x + (SCREEN_WIDTH / 2 - 1);
+	int top = cam_y - (SCREEN_HEIGHT / 2);
+	int bottom = cam_y + (SCREEN_HEIGHT / 2 - 1);
+
+	SDL_Point top_left = { left, top };
+	SDL_Point top_right = { right, top };
+	SDL_Point bottom_right = { right, bottom };
+	SDL_Point bottom_left = { left, bottom };
+
+	int top_left_id = floor(GetTileId(top_left.x, top_left.y));
+	float top_right_id = ceil(GetTileId(top_right.x, top_right.y));
+	float bottom_right_id = GetTileId(bottom_right.x, bottom_right.y);
+	float bottom_left_id = GetTileId(bottom_left.x, bottom_left.y);
+	int tile_offset_x = left % SCALED_SPRITE_WIDTH;
+	int tile_offset_y = top % SCALED_SPRITE_HEIGHT;
+	int cols_count = top_right_id - top_left_id;
+	int rows_count = ceil((bottom_right_id - top_left_id) / m_tiles_per_col);
+
+	int draw_count = 0;
+
+	//for (auto&& loc_element_layer : m_tiles_layers)
+	auto&& loc_element_layer = m_tiles_layers[0];
+	{
+		for (int row_id = 0; row_id < rows_count; ++row_id)
+		{
+			for (int col_id = 0; col_id < cols_count; ++col_id)
+			{
+				int id = top_left_id + col_id;
+				id = id + row_id * m_tiles_per_col;
+
+				SDL_Point tile_cords = IdToXY(m_tiles_per_col, id);
+
+				//TextureBank::Get("ss_nomargin")->Render(tile_cords.x - cam_x, tile_cords.y - cam_y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, tile_cords.x, tile_cords.y, BASE_SPRITE_WIDTH, BASE_SPRITE_HEIGHT);
+				if (id >= 0 && id < loc_element_layer.size())
+				{
+					if (loc_element_layer[id]->TypeID != TILE_TYPE_NONE)
+					{
+						
+						//if (IdToSpritesheet::Get().GetCorrespondingSpritesheet(loc_element_layer[id]->m_tile_id) == "trees_16_32")
+						//{
+						//	draw_count++;
+						//}
+
+						//const std::string& SPRITESHEET_NAME = IdToSpritesheet::Get().
+						//	GetCorrespondingSpritesheet(loc_element_layer[id]->m_tile_id);
+						
+						const std::string& SPRITESHEET_NAME = GetSpritesheetNameBasedOnSpritesId(loc_element_layer[id]->m_tile_id);
+
+						const int SPRITES_WIDTH = IdToSpritesheet::Get().GetSpriteBaseWidth(SPRITESHEET_NAME);
+						const int SPRITES_HEIGHT = IdToSpritesheet::Get().GetSpriteBaseHeight(SPRITESHEET_NAME);
+						
+						TextureBank::Get(SPRITESHEET_NAME)->Render(tile_cords.x - top_left.x, tile_cords.y - top_left.y, SPRITES_WIDTH * SPRITE_SCALE, SPRITES_HEIGHT * SPRITE_SCALE,
+							loc_element_layer[id]->m_tile_spritesheet_y * SPRITES_WIDTH, loc_element_layer[id]->m_tile_spritesheet_x * SPRITES_HEIGHT, SPRITES_WIDTH, SPRITES_HEIGHT);
+					}
+
+
+					if (m_render_collision_boxes)
+					{
+						if (loc_element_layer[id]->TypeID == TILE_TYPE_BLOCK)
+						{
+							SDL_SetRenderDrawColor(renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
+						}
+						int x_tile = loc_element_layer[id]->m_collider.x + tile_cords.x;
+						int w_tile = loc_element_layer[id]->m_collider.w;
+						int y_tile = loc_element_layer[id]->m_collider.y + tile_cords.y;
+						int h_tile = loc_element_layer[id]->m_collider.h;
+
+						SDL_Rect collision_box{ x_tile - top_left.x, y_tile - top_left.y, w_tile, h_tile };
+
+						if (w_tile > 0 && h_tile > 0)
+						{
+							SDL_RenderDrawRect(renderer, &collision_box);
+						}
+						SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
+
+						//SDL_RenderDrawLine(renderer, col_id * SCALED_SPRITE_WIDTH + tile_offset_x, 0, col_id * SCALED_SPRITE_WIDTH + tile_offset_x, SCREEN_HEIGHT);
+						//SDL_RenderDrawLine(renderer, 0, row_id * SCALED_SPRITE_HEIGHT + tile_offset_y, SCREEN_WIDTH, row_id * SCALED_SPRITE_HEIGHT + tile_offset_y);
+
+						if (m_render_tiles_grid)
+						{
+							SDL_RenderDrawLine(renderer, tile_cords.x - top_left.x, tile_cords.y - top_left.y, tile_cords.x - top_left.x + SCALED_SPRITE_WIDTH, tile_cords.y - top_left.y);
+							SDL_RenderDrawLine(renderer, tile_cords.x - top_left.x, tile_cords.y - top_left.y, tile_cords.x - top_left.x, tile_cords.y - top_left.y + SCALED_HERO_SPRITE_HEIGHT);
+						}
+
+					}
+					//++draw_count;
+				}
+			}
+		}
+	}
+}
+
+void Location::RenderTile(SDL_Renderer* renderer, int tile_id, const SDL_Point& top_left)
+{
+	int draw_count = 0;
+	for (auto&& loc_element_layer : m_tiles_layers)
+	{
+		if (loc_element_layer == m_tiles_layers[0])
+		{
+			continue;
+		}
+		
+		SDL_Point tile_cords = IdToXY(m_tiles_per_col, tile_id);
+
+		//TextureBank::Get("ss_nomargin")->Render(tile_cords.x - cam_x, tile_cords.y - cam_y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT, tile_cords.x, tile_cords.y, BASE_SPRITE_WIDTH, BASE_SPRITE_HEIGHT);
+		if (tile_id >= 0 /*&& tile_id < loc_element_layer.size()*/)
+		{
+			if (loc_element_layer[tile_id]->TypeID != TILE_TYPE_NONE)
+			{
+
+				/*if (IdToSpritesheet::Get().GetCorrespondingSpritesheet(loc_element_layer[tile_id]->m_sprite_id) == "trees_16_32")
+				{
+					draw_count++;
+				}
+
+				if (loc_element_layer[tile_id]->m_sprite_id > 1000)
+				{
+					draw_count++;
+				}*/
+
+				/*TextureBank::Get(IdToSpritesheet::Get().
+					GetCorrespondingSpritesheet(loc_element_layer[tile_id]->m_sprite_id))->Render(tile_cords.x - top_left.x, tile_cords.y - top_left.y, SCALED_SPRITE_WIDTH, SCALED_SPRITE_HEIGHT,
+					loc_element_layer[tile_id]->m_tile_spritesheet_y * BASE_SPRITE_WIDTH, loc_element_layer[tile_id]->m_tile_spritesheet_x * BASE_SPRITE_HEIGHT, BASE_SPRITE_WIDTH, BASE_SPRITE_HEIGHT);*/
+
+				//const std::string& SPRITESHEET_NAME = IdToSpritesheet::Get().
+				//	GetCorrespondingSpritesheet(loc_element_layer[tile_id]->m_sprite_id);
+
+				const std::string& SPRITESHEET_NAME = GetSpritesheetNameBasedOnSpritesId(loc_element_layer[tile_id]->m_sprite_id);
+
+				const int SPRITES_WIDTH = IdToSpritesheet::Get().GetSpriteBaseWidth(SPRITESHEET_NAME);
+				const int SPRITES_HEIGHT = IdToSpritesheet::Get().GetSpriteBaseHeight(SPRITESHEET_NAME);
+
+				TextureBank::Get(SPRITESHEET_NAME)->Render(tile_cords.x - top_left.x, tile_cords.y - top_left.y, SPRITES_WIDTH * SPRITE_SCALE, SPRITES_HEIGHT * SPRITE_SCALE,
+					loc_element_layer[tile_id]->m_tile_spritesheet_y * SPRITES_WIDTH, loc_element_layer[tile_id]->m_tile_spritesheet_x * SPRITES_HEIGHT, SPRITES_WIDTH, SPRITES_HEIGHT);
+			}
+
+
+			if (m_render_collision_boxes)
+			{
+				if (loc_element_layer[tile_id]->TypeID == TILE_TYPE_BLOCK)
+				{
+					SDL_SetRenderDrawColor(renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
+				}
+				int x_tile = loc_element_layer[tile_id]->m_collider.x + tile_cords.x;
+				int w_tile = loc_element_layer[tile_id]->m_collider.w;
+				int y_tile = loc_element_layer[tile_id]->m_collider.y + tile_cords.y;
+				int h_tile = loc_element_layer[tile_id]->m_collider.h;
+
+				SDL_Rect collision_box{ x_tile - top_left.x, y_tile - top_left.y, w_tile, h_tile };
+
+				if (w_tile > 0 && h_tile > 0)
+				{
+					SDL_RenderDrawRect(renderer, &collision_box);
+				}
+				SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_TRANSPARENT);
+
+				//SDL_RenderDrawLine(renderer, col_id * SCALED_SPRITE_WIDTH + tile_offset_x, 0, col_id * SCALED_SPRITE_WIDTH + tile_offset_x, SCREEN_HEIGHT);
+				//SDL_RenderDrawLine(renderer, 0, row_id * SCALED_SPRITE_HEIGHT + tile_offset_y, SCREEN_WIDTH, row_id * SCALED_SPRITE_HEIGHT + tile_offset_y);
+
+				if (m_render_tiles_grid)
+				{
+					SDL_RenderDrawLine(renderer, tile_cords.x - top_left.x, tile_cords.y - top_left.y, tile_cords.x - top_left.x + SCALED_SPRITE_WIDTH, tile_cords.y - top_left.y);
+					SDL_RenderDrawLine(renderer, tile_cords.x - top_left.x, tile_cords.y - top_left.y, tile_cords.x - top_left.x, tile_cords.y - top_left.y + SCALED_HERO_SPRITE_HEIGHT);
+				}
+
+			}
+			//++draw_count;
+		}
+	}
+}
+
+
+void Location::PrepareLocationSpecificData(const int spritesheet_tiles_count, const int first_spritesheet_gid, const std::string& spritesheet_name)
+{
+	for (int i = first_spritesheet_gid; i < spritesheet_tiles_count + first_spritesheet_gid; ++i)
+	{
+		lua_id_to_spritesheet_name[i] = spritesheet_name;
+		id_to_offset[i] = first_spritesheet_gid;
+	}
+}
+
+int Location::GetFirstGIDBasedOnSpritesID(const int sprites_id) const
+{
+	return id_to_offset.at(sprites_id);
+}
+
+const std::string Location::GetSpritesheetNameBasedOnSpritesId(const int sprites_id) const
+{
+	return lua_id_to_spritesheet_name.at(sprites_id);
+}
+
+// No longer used as it has been replaced by LuaLoader class
 bool Location::OnLoadLua(const std::string& File, int tiles_layer_id)
 {
 	bool success = true;
@@ -344,7 +554,7 @@ bool Location::OnLoadLua(const std::string& File, int tiles_layer_id)
 				// TODO: Instead of hardcoded value extract col_no from spritesheet. 
 				// We don't know which spritesheet values should be extracted though.
 				// Value is actually stored in lua
-				MapIdToCoords(col_number, Stringify::ToInt(value.as<std::string>()), block_type_ids);
+				//MapIdToCoords(col_number, Stringify::ToInt(value.as<std::string>()), block_type_ids);
 
 				//switch (t) {
 				//case sol::type::string: {
@@ -575,65 +785,9 @@ void Location::SetBorderLimitsLua(sol::state& lua)
 
 }
 
-void Location::SetLocationLayersPtrs()
-{
-	//m_tiles_arr
-	//m_tiles_layers
-	std::vector<std::shared_ptr<CTile>> tiles_per_layer;
-	tiles_per_layer.reserve(m_tiles_arr.size());
-	for(auto&& tile : m_tiles_arr)
-	{
-		std::shared_ptr<CTile> tile_ptr = std::make_shared<CTile>(tile);
-		tiles_per_layer.emplace_back(tile_ptr);
-	}
-	m_tiles_layers.emplace_back(tiles_per_layer);
-
-	for (int elements_layer_index = 0; elements_layer_index < m_location_elements.size(); ++elements_layer_index)
-	{
-		std::vector<std::shared_ptr<CTile>> tiles_per_elements_layer;
-		tiles_per_elements_layer.reserve(m_location_elements[elements_layer_index].m_tiles_arr.size());
-
-		for (auto&& tile : m_location_elements[elements_layer_index].m_tiles_arr)
-		{
-			std::shared_ptr<CTile> tile_ptr = std::make_shared<CTile>(tile);
-			tiles_per_elements_layer.emplace_back(tile_ptr);
-		}
-		m_tiles_layers.emplace_back(tiles_per_elements_layer);
-	}
-}
-
 int Location::GetLayersCount() const
 {
 	return m_tiles_layers.size();
-}
-
-CTile* Location::GetTile(int x, int y)
-{
-	int ID = 0;
-
-	ID = x / SCALED_SPRITE_WIDTH;
-	ID = ID + (TILES_COLS * (y / SCALED_SPRITE_HEIGHT));
-
-	if (ID < 0 || ID >= m_tiles_arr.size()) {
-		return NULL;
-	}
-
-	return &m_tiles_arr[ID];
-}
-
-// FIX ME: TILES_COL_NO shouldn't be a thing - instead they should be read from lua?
-CTile* Location::GetTile(int x, int y, int TILES_COL_NO)
-{
-	int ID = 0;
-
-	ID = x / SCALED_SPRITE_WIDTH;
-	ID = ID + (TILES_COL_NO * (y / SCALED_SPRITE_HEIGHT));
-
-	if (ID < 0 || ID >= m_tiles_arr.size()) {
-		return NULL;
-	}
-
-	return &m_tiles_arr[ID];
 }
 
 std::shared_ptr<CTile> Location::GetTileByLayer(int x, int y, int TILES_COL_NO, int layer_id)
@@ -643,7 +797,7 @@ std::shared_ptr<CTile> Location::GetTileByLayer(int x, int y, int TILES_COL_NO, 
 	ID = x / SCALED_SPRITE_WIDTH;
 	ID = ID + (TILES_COL_NO * (y / SCALED_SPRITE_HEIGHT));
 
-	if (ID < 0 || ID >= m_tiles_arr.size()) {
+	if (ID < 0 || ID >= m_tiles_layers[layer_id].size()) {
 		return NULL;
 	}
 
@@ -740,11 +894,66 @@ int Location::GetTileDirId(int x, int y, int dir)
 
 	printf("Klikam na kafelek o ID = %d\n", ID);
 
-	if (ID < 0 || ID >= m_tiles_arr.size()) {
+	//DebugRenderer::get().AddDebugLine("IDClicked", "Recently clicked ID:" + Stringify::Int(ID), App::GetInstance()->GetRenderer());
+
+	// TODO: FIX THIS SHOULD CHECK ALL THE LAYERS
+	if (ID < 0 || ID >= m_tiles_layers[0].size()) {
 		return -1;
 	}
 
 	return ID;
+}
+
+/*
+	0	UP,
+	1	DOWN,
+	2	LEFT,
+	3	RIGHT
+*/
+std::array<int, 4> Location::GetTilesIdBasedOnPlayerDir(int x, int y, int dir)
+{
+	std::array<int, 4> id_results = { 0,0,0,0 };
+	int ID = 0;
+
+	ID = x / SCALED_SPRITE_WIDTH;
+	ID = ID + (m_tiles_per_col * floor(y / SCALED_SPRITE_HEIGHT));
+
+
+	if (dir == 0)
+	{
+		id_results[0] = ID - 1 * m_tiles_per_col;
+		id_results[1] = ID - 1 * m_tiles_per_col + 1;
+		id_results[2] = ID - 2 * m_tiles_per_col;
+		id_results[3] = ID - 2 * m_tiles_per_col + 1;
+	}
+	else if (dir == 1)
+	{
+		id_results[0] = ID + 1 * m_tiles_per_col;
+		id_results[1] = ID + 1 * m_tiles_per_col + 1;
+		id_results[2] = ID + 2 * m_tiles_per_col;
+		id_results[3] = ID + 2 * m_tiles_per_col + 1;
+	}
+	else if (dir == 2)
+	{
+		id_results[0] = ID - 1;
+		id_results[1] = ID - 2;
+		id_results[2] = ID - 1 - m_tiles_per_col;
+		id_results[3] = ID - 2 - m_tiles_per_col;
+	}
+	else if (dir == 3)
+	{
+		id_results[0] = ID + 1;
+		id_results[1] = ID + 2;
+		id_results[2] = ID + 1 - m_tiles_per_col;
+		id_results[3] = ID + 2 - m_tiles_per_col;
+	}
+	
+	for (int i = 0; i < 4; ++i)
+	{
+		INFO("id_result[{0}] = {1}", i, id_results[i]);
+	}
+	
+	return id_results;
 }
 
 float Location::GetTileId(float x, float y)
@@ -757,7 +966,7 @@ float Location::GetTileId(float x, float y)
 
 	//printf("Klikam na kafelek o ID = %d\n", ID);
 
-	if (ID < 0 || ID >= m_tiles_arr.size()) {
+	if (ID < 0 || ID >= m_tiles_layers[0].size()) {
 		//return -1;
 	}
 
@@ -818,10 +1027,10 @@ void Location::MapIdToCoords(const int cols, const int id)
 		}
 	}
 
-	m_tiles_arr.emplace_back(tempTile);
+	//m_tiles_arr.emplace_back(tempTile);
 }
 
-void Location::MapIdToCoords(const int cols, const int id, std::vector<int>& block_ids)
+void Location::MapIdToCoords(const int cols, const int id, const int layer_id, std::vector<int>& block_ids)
 {
 	CTile tempTile;
 	if (id == 0)
@@ -844,7 +1053,7 @@ void Location::MapIdToCoords(const int cols, const int id, std::vector<int>& blo
 		}
 	}
 
-	m_tiles_arr.emplace_back(tempTile);
+	//m_tiles_arr.emplace_back(tempTile);
 }
 
 SDL_Point Location::IdToXY(const int cols, const int id)

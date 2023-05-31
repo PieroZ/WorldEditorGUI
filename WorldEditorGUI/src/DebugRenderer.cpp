@@ -24,7 +24,7 @@ void DebugRenderer::AddDebugLine(const std::string& debug_line_key, const std::s
 		map_index = m_debug_lines_textures[debug_line_key].first;
 	}
 
-	m_debug_lines.emplace_back(debug_line);
+	//m_debug_lines.emplace_back(debug_line);
 	
 	m_debug_lines_textures[debug_line_key] = std::make_pair(map_index, std::make_unique<Texture>());
 	m_debug_lines_textures[debug_line_key].second->loadFromRenderedText(renderer, debug_line, color, m_debug_font);
